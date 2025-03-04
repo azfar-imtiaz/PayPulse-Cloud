@@ -1,0 +1,14 @@
+{
+  "Records": [
+    {
+      "s3": {
+        "bucket": {
+          "name": "rental-invoices-bucket"
+        },
+        "object": {
+          "key": "rental-invoices/azy.imtiaz/Hyresavi_1297533901.pdf"
+        }
+      }
+    }
+  ]
+}
