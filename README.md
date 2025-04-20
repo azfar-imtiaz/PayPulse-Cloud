@@ -1,5 +1,8 @@
 # PayPulse-Cloud
-This repository contains the Cloud backend for the PayPulse app. This backend is maintained using Terraform.
+This repository contains the Cloud backend for the PayPulse app. The backend for this app is developed in AWS and maintained using Terraform.
+
+PayPulse is an iOS app that fetches invoices from a Gmail inbox, parses them, and presents invoice information and statistics. 
+The GitHub link to the PayPulse app can be found [here](https://github.com/azfar-imtiaz/PayPulse).
 
 ## Project Structure
 ```
@@ -152,7 +155,7 @@ I am currently using CloudWatch for monitoring for the lambda functions. Current
 ## Next Steps
 - Some IAM policies are currently AWS-managed - migrate them to Terraform-managed
 - Move SNS subscription management to Terraform
-    - I would like to define a flow where, whenever a new user installs the app and signs up using their Gmail account, there automatically get configured for push notifications. Right now, this process has to be configured manually
+    - I would like to define a flow where, whenever a new user installs the app and signs up using their Gmail account, they automatically get configured for push notifications. Right now, this process has to be configured manually
 - Add CI/CD workflow
     - I would like to set up a flow where, whenever there any updates or additions to the lambda functions are pushed, it triggers a pipeline which tests the function, and then deploys it
     - GitHub Actions can be used for this

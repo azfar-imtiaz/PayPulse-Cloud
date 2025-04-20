@@ -172,3 +172,9 @@ cython_debug/
 
 # Terraform .tfvars file
 terraform.tfvars
+*.tfstate
+*.backup
+
+.idea/
+.DS_Store
+*.zip
