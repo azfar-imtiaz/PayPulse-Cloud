@@ -1,3 +1,4 @@
+import os
 import json
 import boto3
 from botocore.exceptions import ClientError
@@ -7,7 +8,7 @@ from HyresaviParser import extract_rental_info_from_file
 
 
 s3_client = boto3.client('s3')
-dynamodb = boto3.resource('dynamodb', region_name='eu-west-1')
+dynamodb = boto3.resource('dynamodb', region_name=os.environ['REGION'])
 
 
 def lambda_handler(event, context=None):
@@ -50,7 +51,7 @@ def lambda_handler(event, context=None):
 
         # insert data into DynamoDB table
         try:
-            table = dynamodb.Table("Wallenstam-Invoices")
+            table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
             # add invoice ID
             invoice_id = "Invoice_" + filename.split('/')[-1].split('.')[0].split('_')[-1]
             parsed_data['InvoiceID'] = invoice_id

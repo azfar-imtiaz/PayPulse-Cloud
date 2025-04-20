@@ -18,7 +18,6 @@ from botocore.config import Config
 s3_client = boto3.client('s3')
 config = Config(retries={'max_attempts': 5, 'mode': 'adaptive'})
 dynamodb = boto3.resource('dynamodb', config=config)
-secret_client = boto3.client('secretsmanager')
 
 
 def get_email_credentials():

@@ -14,7 +14,6 @@ from boto3.dynamodb.conditions import Key
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
-secret_client = boto3.client('secretsmanager')
 
 
 def get_email_credentials():
