@@ -80,6 +80,18 @@ variable "invoices_table_due_date_month" {
   default     = "due_date_month"
 }
 
+variable "users_table" {
+  type        = string
+  description = "The DynamoDB table containing user information"
+  default     = "Users"
+}
+
+variable "users_table_hash_key" {
+  type        = string
+  description = "The hash key of the users DB table"
+  default     = "UserID"
+}
+
 # SNS
 
 variable "rental_invoice_notification_topic" {
@@ -146,6 +158,12 @@ variable "lambda_send_rental_invoice_notification" {
   type        = string
   description = "The lambda function for sending a notification once a rental invoice has been parsed and stored in DynamoDB"
   default     = "send_invoice_notification"
+}
+
+variable "lambda_signup_user" {
+  type        = string
+  description = "The lambda function called when a new user signs up"
+  default     = "signup_user"
 }
 
 variable "rental_invoice_email" {

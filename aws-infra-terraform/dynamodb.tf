@@ -1,3 +1,5 @@
+# Wallenstam Invoices table
+
 resource "aws_dynamodb_table" "wallenstam_invoices" {
   name         = var.invoices_table
   billing_mode = "PROVISIONED"
@@ -38,5 +40,23 @@ resource "aws_dynamodb_table" "wallenstam_invoices" {
 
   server_side_encryption {
     enabled = true
+  }
+}
+
+# Users table
+
+resource "aws_dynamodb_table" "users" {
+  name         = var.users_table
+  billing_mode = "PAY_PER_REQUEST"
+
+  hash_key = var.users_table_hash_key
+
+  attribute {
+    name = var.users_table_hash_key
+    type = "S"
+  }
+
+  tags = {
+    Environment = "production"
   }
 }

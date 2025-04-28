@@ -18,6 +18,11 @@ data "aws_s3_bucket_object" "send_invoice_notification_zip" {
   key    = "${var.lambda_send_rental_invoice_notification}.zip"
 }
 
+# this fetches the latest version of the signup_user.zip file from S3
+data "aws_s3_bucket_object" "signup_user_zip" {
+  bucket = aws_s3_bucket.lambda_bucket.id
+  key    = "${var.lambda_signup_user}.zip"
+}
 
 # === Fetch_invoices lambda function ===
 resource "aws_lambda_function" "fetch_invoices" {
@@ -132,4 +137,28 @@ resource "aws_lambda_function" "send_invoice_notification" {
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
   s3_key    = "${var.lambda_send_rental_invoice_notification}.zip"
+  s3_object_version = data.aws_s3_bucket_object.send_invoice_notification_zip.version_id
+}
+
+# === Signup_user lambda function ===
+resource "aws_lambda_function" "signup_user" {
+  description   = "This function is triggered via the iOS app when a new user signs up. It creates a new user entry in DynamoDB, creates a folder with the UserID in rental invoices S3 bucket, and creates a secret for this user."
+  function_name = var.lambda_signup_user
+  handler       = "main.lambda_handler"
+  runtime       = var.python_runtime
+  role          = aws_iam_role.signup_lambda_role.arn
+
+  timeout       = 15
+  memory_size   = 128
+
+  environment {
+    variables = {
+      USERS_TABLE = aws_dynamodb_table.users.name
+      S3_BUCKET   = var.invoices_bucket_name
+    }
+  }
+
+  s3_bucket = aws_s3_bucket.lambda_bucket.id
+  s3_key    = "${var.lambda_signup_user}.zip"
+  s3_object_version = data.aws_s3_bucket_object.signup_user_zip.version_id
 }

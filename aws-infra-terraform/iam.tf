@@ -63,6 +63,30 @@ resource "aws_iam_user_policy_attachment" "user_autoscaling_attach" {
   user       = aws_iam_user.wallenstam_user.name
 }
 
+# === Defining the APIGateway policy ===
+resource "aws_iam_policy" "api_gateway_policy" {
+  name = "APIGatewayFullAccessPolicy"
+  description = "Policy to allow API Gateway operations"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "apigateway:*"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# attach the APIGateway policy to the wallenstam_user
+resource "aws_iam_user_policy_attachment" "attach_api_gateway_policy" {
+  user       = aws_iam_user.wallenstam_user.name
+  policy_arn = aws_iam_policy.api_gateway_policy.arn
+}
 
 # === Defining the roles ===
 
