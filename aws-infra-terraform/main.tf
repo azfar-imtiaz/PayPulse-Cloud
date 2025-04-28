@@ -1,5 +1,9 @@
 terraform {
 	required_providers {
+		klayers = {
+			source  = "ldcorentin/klayer"
+			version = "~> 1.0.0"
+		}
 		aws = {
 			source  = "hashicorp/aws"
 			version = "~> 5.0"
@@ -10,5 +14,5 @@ terraform {
 }
 
 provider "aws" {
-	region = "${var.aws_region}"
+	region = var.aws_region
 }

@@ -1,5 +1,6 @@
 import os
 import json
+import bcrypt
 from typing import Union
 
 import boto3
@@ -48,12 +49,15 @@ def create_user_in_dynamodb(user_id: str, email: str, name: str, password: str) 
         )
 
     try:
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        hashed_password_str = hashed_password.decode('utf-8')
         dynamodb.put_item(
             TableName=USERS_TABLE,
             Item={
                 'UserID': {'S': user_id},
                 'Email': {'S': email},
                 'Name': {'S': name},
+                'Password': {'S': hashed_password_str},
                 'CreatedOn': {'S': creation_date},
                 'CreatedAt': {'S': creation_time}
             }

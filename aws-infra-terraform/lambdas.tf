@@ -141,6 +141,12 @@ resource "aws_lambda_function" "send_invoice_notification" {
 }
 
 # === Signup_user lambda function ===
+
+data "klayers_package_latest_version" "bcrypt" {
+  name   = "bcrypt"
+  region = var.aws_region
+}
+
 resource "aws_lambda_function" "signup_user" {
   description   = "This function is triggered via the iOS app when a new user signs up. It creates a new user entry in DynamoDB, creates a folder with the UserID in rental invoices S3 bucket, and creates a secret for this user."
   function_name = var.lambda_signup_user
@@ -157,6 +163,10 @@ resource "aws_lambda_function" "signup_user" {
       S3_BUCKET   = var.invoices_bucket_name
     }
   }
+
+  layers = [
+    data.klayers_package_latest_version.bcrypt.arn
+  ]
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
   s3_key    = "${var.lambda_signup_user}.zip"
