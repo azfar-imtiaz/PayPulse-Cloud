@@ -177,4 +177,3 @@ terraform.tfvars
 
 .idea/
 .DS_Store
-*.zip

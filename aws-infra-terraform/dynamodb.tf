@@ -56,6 +56,19 @@ resource "aws_dynamodb_table" "users" {
     type = "S"
   }
 
+  attribute {
+    name = "Email"
+    type = "S"
+  }
+
+  # GSI
+
+  global_secondary_index {
+    hash_key        = "Email"
+    name            = "Email-index"
+    projection_type = "ALL"
+  }
+
   tags = {
     Environment = "production"
   }

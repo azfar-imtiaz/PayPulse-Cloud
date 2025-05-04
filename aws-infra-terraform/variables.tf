@@ -166,6 +166,12 @@ variable "lambda_signup_user" {
   default     = "signup_user"
 }
 
+variable "lambda_login_user" {
+  type        = string
+  description = "The lambda function called when an existing user logs in"
+  default     = "login_user"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"

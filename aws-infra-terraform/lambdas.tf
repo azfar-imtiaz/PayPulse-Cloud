@@ -24,6 +24,12 @@ data "aws_s3_bucket_object" "signup_user_zip" {
   key    = "${var.lambda_signup_user}.zip"
 }
 
+# this fetches the latest version of the login_user.zip file from S3
+data "aws_s3_bucket_object" "login_user_zip" {
+  bucket = aws_s3_bucket.lambda_bucket.id
+  key    = "${var.lambda_login_user}.zip"
+}
+
 # === Fetch_invoices lambda function ===
 resource "aws_lambda_function" "fetch_invoices" {
   description   = "This function is a one-time trigger used to fetch all rental invoices found in the email inbox, download the PDF invoices, and upload them to the S3 bucket."
@@ -171,4 +177,50 @@ resource "aws_lambda_function" "signup_user" {
   s3_bucket = aws_s3_bucket.lambda_bucket.id
   s3_key    = "${var.lambda_signup_user}.zip"
   s3_object_version = data.aws_s3_bucket_object.signup_user_zip.version_id
+}
+
+# === Login lambda function ===
+
+/*
+data "klayers_package_latest_version" "pyjwt" {
+  name   = "pyjwt"
+  region = var.aws_region
+}
+
+ */
+
+resource "aws_lambda_layer_version" "pyjwt_layer" {
+  layer_name = "pyjwt-layer"
+  compatible_runtimes = ["python3.12"]
+  filename = "../lambda_layers/jwt/pyjwt_layer.zip"
+  source_code_hash = filebase64sha256("../lambda_layers/jwt/pyjwt_layer.zip")
+}
+
+resource "aws_lambda_function" "login_user" {
+  description   = "This function is triggered via the iOS app when an existing user logs in. It..."
+  function_name = "login_user"
+  role          = aws_iam_role.wallenstam_lambda_role.arn
+  # runtime       = var.python_runtime
+  runtime       = "python3.9"
+  handler       = "main.lambda_handler"
+
+  timeout     = 15
+  memory_size = 128
+
+  environment {
+    variables = {
+      USERS_TABLE = aws_dynamodb_table.users.name
+      JWT_SECRET  = data.aws_secretsmanager_secret_version.jwt_secret_version.secret_string
+    }
+  }
+
+  layers = [
+    data.klayers_package_latest_version.bcrypt.arn,
+    aws_lambda_layer_version.pyjwt_layer.arn
+    # data.klayers_package_latest_version.pyjwt.arn
+  ]
+
+  s3_bucket = aws_s3_bucket.lambda_bucket.id
+  s3_key    = "${var.lambda_login_user}.zip"
+  s3_object_version = data.aws_s3_bucket_object.login_user_zip.version_id
 }
