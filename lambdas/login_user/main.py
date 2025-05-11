@@ -30,7 +30,8 @@ def lambda_handler(event, context):
         return {
             "statusCode": 200,
             "body": json.dumps({
-                "token": token
+                "access_token": token,
+                "token_type": "Bearer"
             })
         }
     except InvalidCredentialsError as e:
