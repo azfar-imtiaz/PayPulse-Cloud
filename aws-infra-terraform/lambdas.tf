@@ -146,12 +146,28 @@ resource "aws_lambda_function" "send_invoice_notification" {
   s3_object_version = data.aws_s3_bucket_object.send_invoice_notification_zip.version_id
 }
 
-# === Signup_user lambda function ===
+# === Lambda layers for bcrypt, pyjwt, and common utils functions
 
 data "klayers_package_latest_version" "bcrypt" {
   name   = "bcrypt"
   region = var.aws_region
 }
+
+resource "aws_lambda_layer_version" "utils_layer" {
+  layer_name = "utils-layer"
+  compatible_runtimes = ["python3.12"]
+  filename = "../lambda_layers/common/utils_layer.zip"
+  source_code_hash = filebase64sha256("../lambda_layers/common/utils_layer.zip")
+}
+
+resource "aws_lambda_layer_version" "pyjwt_layer" {
+  layer_name = "pyjwt-layer"
+  compatible_runtimes = ["python3.12"]
+  filename = "../lambda_layers/jwt/pyjwt_layer.zip"
+  source_code_hash = filebase64sha256("../lambda_layers/jwt/pyjwt_layer.zip")
+}
+
+# === Signup_user lambda function ===
 
 resource "aws_lambda_function" "signup_user" {
   description   = "This function is triggered via the iOS app when a new user signs up. It creates a new user entry in DynamoDB, creates a folder with the UserID in rental invoices S3 bucket, and creates a secret for this user."
@@ -171,7 +187,8 @@ resource "aws_lambda_function" "signup_user" {
   }
 
   layers = [
-    data.klayers_package_latest_version.bcrypt.arn
+    data.klayers_package_latest_version.bcrypt.arn,
+    aws_lambda_layer_version.utils_layer.arn
   ]
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
@@ -181,26 +198,10 @@ resource "aws_lambda_function" "signup_user" {
 
 # === Login lambda function ===
 
-/*
-data "klayers_package_latest_version" "pyjwt" {
-  name   = "pyjwt"
-  region = var.aws_region
-}
-
- */
-
-resource "aws_lambda_layer_version" "pyjwt_layer" {
-  layer_name = "pyjwt-layer"
-  compatible_runtimes = ["python3.12"]
-  filename = "../lambda_layers/jwt/pyjwt_layer.zip"
-  source_code_hash = filebase64sha256("../lambda_layers/jwt/pyjwt_layer.zip")
-}
-
 resource "aws_lambda_function" "login_user" {
-  description   = "This function is triggered via the iOS app when an existing user logs in. It..."
+  description   = "This function is triggered via the iOS app when an existing user logs in. It receives the user's email and password, verifies the user details, and then returns the access token in the response."
   function_name = "login_user"
   role          = aws_iam_role.wallenstam_lambda_role.arn
-  # runtime       = var.python_runtime
   runtime       = "python3.9"
   handler       = "main.lambda_handler"
 
@@ -216,8 +217,8 @@ resource "aws_lambda_function" "login_user" {
 
   layers = [
     data.klayers_package_latest_version.bcrypt.arn,
-    aws_lambda_layer_version.pyjwt_layer.arn
-    # data.klayers_package_latest_version.pyjwt.arn
+    aws_lambda_layer_version.pyjwt_layer.arn,
+    aws_lambda_layer_version.utils_layer.arn
   ]
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
