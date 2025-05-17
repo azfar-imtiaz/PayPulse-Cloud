@@ -7,6 +7,7 @@ from utils.error_handling import log_and_generate_error_response
 from utils.dynamodb_utils import create_user_in_dynamodb
 from utils.s3_utils import create_user_folder_in_s3
 from utils.secretsmanager_utils import store_gmail_credentials
+from utils.utility_functions import generate_random_user_id
 from utils.exceptions import InvalidCredentialsError, DatabaseError, UserAlreadyExistsError, S3Error, SecretsManagerError
 
 dynamodb = boto3.client('dynamodb')
@@ -21,12 +22,12 @@ def lambda_handler(event, context):
     try:
         user_info = json.loads(event['body'])
 
-        user_id = user_info['user_id']
+        # user_id = user_info['user_id']
+        user_id = generate_random_user_id()
         email = user_info['email']
         name = user_info['name']
         password = user_info['password']
         gmail_app_password = user_info['gmail_app_password']
-        # s3_folder_name = email.split('@')[0]
         logging.info("Retrieved user information from event body.")
 
         # 1. Store user information in the DB

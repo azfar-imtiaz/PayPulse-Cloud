@@ -3,9 +3,14 @@ import time
 import quopri
 import bcrypt
 import logging
+from uuid import uuid4
 from email.header import decode_header
 
 from utils.exceptions import InvalidCredentialsError, JWTGenerationError, TokenExpiredError, InvalidTokenError
+
+
+def generate_random_user_id() -> str:
+    return f"user_{uuid4()}"
 
 
 def verify_user_password(user_password: str, db_password: str):
