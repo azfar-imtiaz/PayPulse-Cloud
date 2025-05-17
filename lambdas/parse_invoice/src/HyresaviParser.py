@@ -1,9 +1,12 @@
 import re
 
+import logging
 import textract
 from datetime import datetime
 from typing import Dict, Union, NoReturn, Tuple
-from logging_config import logger
+
+from utils.exceptions import InvoiceParseError
+# from logging_config import logger
 
 
 def extract_text_from_pdf(filename) -> Union[str, NoReturn]:
@@ -14,11 +17,10 @@ def extract_text_from_pdf(filename) -> Union[str, NoReturn]:
     """
     try:
         text = textract.process(filename).decode()
-        logger.info(f"Text extracted from {filename}: \n\n{text}")
+        logging.info(f"Text extracted from {filename}: \n\n{text}")
         return text
     except Exception as e:
-        logger.error(f"The following error occurred during text extraction: {str(e)}")
-        raise e
+        raise InvoiceParseError(f"Could not extract text from {filename}")
 
 
 def is_line_viktig(line: str) -> Tuple[bool, str]:
@@ -57,10 +59,8 @@ def convert_date_format(date_text: str) -> Dict:
             'due_date_month': datetime_obj.month,
             'due_date_year': datetime_obj.year
         }
-    except:
-        return {
-            'Due Date': date_text
-        }
+    except Exception as e:
+        raise InvoiceParseError(f"Error formatting date: {date_text}")
 
 
 def extract_rental_info(text: str) -> Union[Dict, NoReturn]:
@@ -72,8 +72,8 @@ def extract_rental_info(text: str) -> Union[Dict, NoReturn]:
     }
 
     try:
-        logger.info("Parsing invoice...")
-        logger.info("\tRunning regexes...")
+        logging.info("Parsing invoice...")
+        logging.info("\tRunning regexes...")
         for title, rg in regexes.items():
             m = re.search(rg, text)
             if m:
@@ -92,7 +92,7 @@ def extract_rental_info(text: str) -> Union[Dict, NoReturn]:
 
         rental_breakdown = []
         start_storing = False
-        logger.info("\tLooping over text...")
+        logging.info("\tLooping over text...")
         for line in text.split('\n'):
             if line.find("Hyra") >= 0:
                 start_storing = True
@@ -109,7 +109,7 @@ def extract_rental_info(text: str) -> Union[Dict, NoReturn]:
                 components = [parse_line(x) for x in line.split(':')]
                 extracted_info[components[0]] = components[1]
 
-        logger.info(f"Rental breakdown: {rental_breakdown}")
+        logging.info(f"Rental breakdown: {rental_breakdown}")
         assert len(rental_breakdown) % 2 == 0
         rental_breakdown_mid = int(len(rental_breakdown) / 2)
 
@@ -125,7 +125,7 @@ def extract_rental_info(text: str) -> Union[Dict, NoReturn]:
     except AssertionError:
         raise AssertionError("Assertion failed - got something extra or missing!")
     except Exception as e:
-        raise e
+        raise InvoiceParseError("An unexpected error occurred when parsing an invoice") from e
 
 
 def extract_rental_info_from_file(filename) -> Dict:

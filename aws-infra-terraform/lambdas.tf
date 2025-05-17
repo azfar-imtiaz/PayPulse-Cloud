@@ -54,6 +54,10 @@ resource "aws_lambda_function" "fetch_invoices" {
     log_format = "JSON"
   }
 
+  layers = [
+    aws_lambda_layer_version.utils_layer.arn
+  ]
+
   s3_bucket         = aws_s3_bucket.lambda_bucket.id
   s3_key            = "${var.lambda_fetch_rental_invoices}.zip"
   s3_object_version = data.aws_s3_bucket_object.fetch_invoices_zip.version_id
@@ -84,6 +88,10 @@ resource "aws_lambda_function" "fetch_latest_invoice" {
     log_format = "JSON"
   }
 
+  layers = [
+    aws_lambda_layer_version.utils_layer.arn
+  ]
+
   s3_bucket         = aws_s3_bucket.lambda_bucket.id
   s3_key            = "${var.lambda_fetch_latest_rental_invoice}.zip"
   s3_object_version = data.aws_s3_bucket_object.fetch_latest_invoice_zip.version_id
@@ -105,7 +113,7 @@ resource "aws_lambda_function" "parse_invoice" {
   function_name = var.lambda_parse_rental_invoice
   role          = aws_iam_role.wallenstam_lambda_role.arn
   package_type  = "Image"
-  image_uri     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/wallenstam/invoice-parser:latest"
+  image_uri     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/wallenstam/invoice-parser:20250513T234001"
   timeout       = 60        # 1 minute
 
   environment {
