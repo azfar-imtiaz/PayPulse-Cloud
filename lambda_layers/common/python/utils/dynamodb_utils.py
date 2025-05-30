@@ -1,12 +1,13 @@
-from typing import Dict
 
 import boto3
 import bcrypt
 import logging
+from uuid import uuid4
+from typing import Dict
 from collections import defaultdict
 from datetime import datetime, timezone
-from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key, Attr
 
 from utils.exceptions import UserNotFoundError, UserAlreadyExistsError, DatabaseError
 
@@ -18,34 +19,69 @@ def fetch_user_by_email(users_table, email: str) -> dict:
     )
 
     if not response['Items']:
-        logging.warning(f"User with email {email} not found.")
+        logging.info(f"User with email '{email}' not found.")
         raise UserNotFoundError("Invalid credentials")
 
     logging.info("User fetched successfully from DB!")
     return response['Items'][0]
 
 
-def create_user_in_dynamodb(dynamodb, user_id: str, email: str, name: str, password: str, users_table_name: str):
+def create_user_in_dynamodb(dynamodb, email: str, name: str, password: str, users_table_name: str) -> str:
     """
     This function creates an entry for a new user in the Users table. It's triggered when a new user signs up.
     """
+
+    def generate_random_user_id() -> str:
+        """
+        This function is only used when creating a new user
+        """
+        return f"user_{uuid4()}"
+
     creation_date = str(datetime.now(timezone.utc).date())
     creation_time = str(datetime.now(timezone.utc).time())
     dynamodb_resource = boto3.resource('dynamodb')
     table = dynamodb_resource.Table(users_table_name)
+
     # check if user already exists
     try:
+        _ = fetch_user_by_email(table, email=email)
+        raise UserAlreadyExistsError(f"User with email '{email}' already exists.")
+    except UserNotFoundError:
+        try:
+            user_id = generate_random_user_id()
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            hashed_password_str = hashed_password.decode('utf-8')
+            dynamodb.put_item(
+                TableName=users_table_name,
+                Item={
+                    'UserID': {'S': user_id},
+                    'Email': {'S': email},
+                    'Name': {'S': name},
+                    'Password': {'S': hashed_password_str},
+                    'CreatedOn': {'S': creation_date},
+                    'CreatedAt': {'S': creation_time}
+                }
+            )
+            logging.info(f"User with ID {user_id} created successfully in DynamoDB.")
+            return user_id
+        except ClientError as e:
+            logging.error(f"Error creating user '{email}' in DynamoDB: {e}")
+            raise DatabaseError(f"Error creating new user: '{email}'") from e
+
+    '''
+    try:
         response = table.get_item(
-            Key={'UserID': user_id}
+            Key={'Email': email}
         )
         if 'Item' in response:
-            logging.warning(f"User with ID {user_id} already exists.")
-            raise UserAlreadyExistsError(f"User with ID {user_id} already exists.")
+            logging.warning(f"User with email '{email}' already exists.")
+            raise UserAlreadyExistsError(f"User with email '{email}' already exists.")
     except ClientError as e:
-        logging.error(f"Error checking user existence for {user_id}: {e}")
-        raise DatabaseError(f"Error checking user status for {user_id}: {e}")
+        logging.error(f"Error checking user existence for '{email}': {e}")
+        raise DatabaseError(f"Error checking user status for '{email}': {e}")
 
     try:
+        user_id = generate_random_user_id()
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         hashed_password_str = hashed_password.decode('utf-8')
         dynamodb.put_item(
@@ -60,9 +96,11 @@ def create_user_in_dynamodb(dynamodb, user_id: str, email: str, name: str, passw
             }
         )
         logging.info(f"User with ID {user_id} created successfully in DynamoDB.")
+        return user_id
     except ClientError as e:
-        logging.error(f"Error creating user {user_id} in DynamoDB: {e}")
-        raise DatabaseError(f"Error creating new user: {user_id}") from e
+        logging.error(f"Error creating user '{email}' in DynamoDB: {e}")
+        raise DatabaseError(f"Error creating new user: '{email}'") from e
+    '''
 
 
 def is_invoice_already_parsed(current_month: int, current_year: int, invoice_dates: defaultdict) -> bool:
@@ -126,7 +164,7 @@ def invoice_exists_in_dynamodb(dynamodb_table, user_id: str, current_month: int,
 
 def create_invoice_in_dynamodb(dynamodb_table, invoice_id: str, user_id: str, parsed_data: Dict):
     """
-    This function creates a new entry in the Wallenstam-Invoices DB table. It is triggered when a new rental invoice is found.
+    This function creates a new entry in the RentalInvoices DB table. It is triggered when a new rental invoice is found.
     """
     parsed_data['InvoiceID'] = invoice_id
     parsed_data['UserID'] = user_id
