@@ -14,7 +14,7 @@ from utils.dynamodb_utils import invoice_exists_in_dynamodb
 from utils.error_handling import log_and_generate_error_response
 from utils.secretsmanager_utils import get_email_credentials
 from utils.s3_utils import download_and_upload_attachment
-from utils.utils import get_user_id_from_token
+from utils.jwt_utils import get_user_id_from_token
 from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError
 
 s3_client = boto3.client('s3')

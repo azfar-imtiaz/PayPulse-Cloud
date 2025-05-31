@@ -56,7 +56,7 @@ resource "aws_lambda_function" "fetch_invoices" {
 
   layers = [
     # this layer is not needed - it's there because the lambda function imports from utils.utility_functions
-    data.klayers_package_latest_version.bcrypt.arn,
+    # data.klayers_package_latest_version.bcrypt.arn,
     aws_lambda_layer_version.utils_layer.arn,
     aws_lambda_layer_version.pyjwt_layer.arn
   ]

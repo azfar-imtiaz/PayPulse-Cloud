@@ -5,7 +5,8 @@ import logging
 
 from utils.error_handling import log_and_generate_error_response
 from utils.dynamodb_utils import fetch_user_by_email
-from utils.utility_functions import verify_user_password, generate_jwt_token
+from utils.auth_utils import verify_user_password
+from utils.jwt_utils import generate_jwt_token
 from utils.exceptions import UserNotFoundError, InvalidCredentialsError, JWTGenerationError
 
 dynamodb = boto3.resource('dynamodb')

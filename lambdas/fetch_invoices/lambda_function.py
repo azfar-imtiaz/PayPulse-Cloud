@@ -10,7 +10,8 @@ from email.utils import parsedate_to_datetime
 from botocore.config import Config
 
 from utils.error_handling import log_and_generate_error_response
-from utils.utility_functions import decode_string, get_user_id_from_token
+from utils.utility_functions import decode_string
+from utils.jwt_utils import get_user_id_from_token
 from utils.s3_utils import download_and_upload_attachment
 from utils.dynamodb_utils import is_invoice_already_parsed, get_all_invoice_dates
 from utils.secretsmanager_utils import get_email_credentials

@@ -1,6 +1,4 @@
-
 import boto3
-import bcrypt
 import logging
 from uuid import uuid4
 from typing import Dict
@@ -30,6 +28,7 @@ def create_user_in_dynamodb(dynamodb, email: str, name: str, password: str, user
     """
     This function creates an entry for a new user in the Users table. It's triggered when a new user signs up.
     """
+    from utils.auth_utils import create_password_hash
 
     def generate_random_user_id() -> str:
         """
@@ -49,8 +48,7 @@ def create_user_in_dynamodb(dynamodb, email: str, name: str, password: str, user
     except UserNotFoundError:
         try:
             user_id = generate_random_user_id()
-            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-            hashed_password_str = hashed_password.decode('utf-8')
+            hashed_password_str = create_password_hash(password)
             dynamodb.put_item(
                 TableName=users_table_name,
                 Item={
