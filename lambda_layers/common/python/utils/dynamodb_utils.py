@@ -68,40 +68,6 @@ def create_user_in_dynamodb(dynamodb, email: str, name: str, password: str, user
             logging.error(f"Error creating user '{email}' in DynamoDB: {e}")
             raise DatabaseError(f"Error creating new user: '{email}'") from e
 
-    '''
-    try:
-        response = table.get_item(
-            Key={'Email': email}
-        )
-        if 'Item' in response:
-            logging.warning(f"User with email '{email}' already exists.")
-            raise UserAlreadyExistsError(f"User with email '{email}' already exists.")
-    except ClientError as e:
-        logging.error(f"Error checking user existence for '{email}': {e}")
-        raise DatabaseError(f"Error checking user status for '{email}': {e}")
-
-    try:
-        user_id = generate_random_user_id()
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        hashed_password_str = hashed_password.decode('utf-8')
-        dynamodb.put_item(
-            TableName=users_table_name,
-            Item={
-                'UserID': {'S': user_id},
-                'Email': {'S': email},
-                'Name': {'S': name},
-                'Password': {'S': hashed_password_str},
-                'CreatedOn': {'S': creation_date},
-                'CreatedAt': {'S': creation_time}
-            }
-        )
-        logging.info(f"User with ID {user_id} created successfully in DynamoDB.")
-        return user_id
-    except ClientError as e:
-        logging.error(f"Error creating user '{email}' in DynamoDB: {e}")
-        raise DatabaseError(f"Error creating new user: '{email}'") from e
-    '''
-
 
 def is_invoice_already_parsed(current_month: int, current_year: int, invoice_dates: defaultdict) -> bool:
     """
@@ -146,7 +112,7 @@ def get_all_invoice_dates(dynamodb_table, user_id: str) -> defaultdict:
 
 def invoice_exists_in_dynamodb(dynamodb_table, user_id: str, current_month: int, current_year: int) -> bool:
     """
-    This function checks if an invoice with the current month and year exists in the Wallenstam-Invoices DynamoDB table
+    This function checks if an invoice with the current month and year exists in the RentalInvoices DynamoDB table
     """
     '''
     response = table.query(

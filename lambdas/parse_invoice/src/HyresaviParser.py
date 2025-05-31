@@ -56,8 +56,8 @@ def convert_date_format(date_text: str) -> Dict:
         datetime_obj = datetime.strptime(date_text, '%Y-%m-%d')
         return {
             'Due Date': datetime_obj.strftime('%d-%m-%Y'),
-            'due_date_month': datetime_obj.month,
-            'due_date_year': datetime_obj.year
+            'due_date_month': str(datetime_obj.month),
+            'due_date_year': str(datetime_obj.year)
         }
     except Exception as e:
         raise InvoiceParseError(f"Error formatting date: {date_text}")

@@ -42,11 +42,11 @@ resource "aws_lambda_function" "fetch_invoices" {
   environment {
     variables = {
       DYNAMODB_TABLE      = var.invoices_table
-      EMAIL_CREDS         = aws_secretsmanager_secret.email_access_credentials.name
       EMAIL_SENDER        = var.rental_invoice_email
       EMAIL_SUBJECT       = var.rental_invoice_email_subject
       REGION              = var.aws_region
       S3_BUCKET           = var.invoices_bucket_name
+      JWT_SECRET          = data.aws_secretsmanager_secret_version.jwt_secret_version.secret_string
     }
   }
 
@@ -55,7 +55,10 @@ resource "aws_lambda_function" "fetch_invoices" {
   }
 
   layers = [
-    aws_lambda_layer_version.utils_layer.arn
+    # this layer is not needed - it's there because the lambda function imports from utils.utility_functions
+    data.klayers_package_latest_version.bcrypt.arn,
+    aws_lambda_layer_version.utils_layer.arn,
+    aws_lambda_layer_version.pyjwt_layer.arn
   ]
 
   s3_bucket         = aws_s3_bucket.lambda_bucket.id
@@ -113,7 +116,7 @@ resource "aws_lambda_function" "parse_invoice" {
   function_name = var.lambda_parse_rental_invoice
   role          = aws_iam_role.wallenstam_lambda_role.arn
   package_type  = "Image"
-  image_uri     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/wallenstam/invoice-parser:20250513T234001"
+  image_uri     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/wallenstam/invoice-parser:20250530T234433"
   timeout       = 60        # 1 minute
 
   environment {
@@ -196,7 +199,8 @@ resource "aws_lambda_function" "signup_user" {
 
   layers = [
     data.klayers_package_latest_version.bcrypt.arn,
-    aws_lambda_layer_version.utils_layer.arn
+    aws_lambda_layer_version.utils_layer.arn,
+    aws_lambda_layer_version.pyjwt_layer.arn
   ]
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id

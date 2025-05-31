@@ -45,7 +45,7 @@ variable "invoices_bucket_name" {
 variable "path_to_invoices" {
   type        = string
   description = "The path to the rental invoices on the S3 bucket"
-  sensitive   = true
+  default     = "rental-invoices/"
 }
 
 variable "lambda_functions_bucket_name" {
@@ -59,10 +59,16 @@ variable "lambda_functions_bucket_name" {
 variable "invoices_table" {
   type        = string
   description = "The DynamoDB table containing parsed rental invoices data"
-  default     = "Wallenstam-Invoices"
+  default     = "RentalInvoices"
 }
 
 variable "invoices_table_hash_key" {
+  type        = string
+  description = "The hash key of the rental invoices DB table"
+  default     = "UserID"
+}
+
+variable "invoices_table_range_key" {
   type        = string
   description = "The hash key of the rental invoices DB table"
   default     = "InvoiceID"

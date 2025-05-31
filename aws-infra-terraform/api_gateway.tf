@@ -1,8 +1,10 @@
 # Create the API Gateway HTTP API
 resource "aws_apigatewayv2_api" "paypulse_api" {
-  name          = "PayPulseSignupAPI"
+  name          = "PayPulseAPI"
   protocol_type = "HTTP"
 }
+
+# --- Endpoint for login ---
 
 # Connect API Gateway to SignupUser lambda function
 resource "aws_apigatewayv2_integration" "signup_integration" {
@@ -16,12 +18,12 @@ resource "aws_apigatewayv2_integration" "signup_integration" {
 # Create a route (URL path/signup)
 resource "aws_apigatewayv2_route" "signup_route" {
   api_id     = aws_apigatewayv2_api.paypulse_api.id
-  route_key  = "POST /signup"
+  route_key  = "POST /auth/signup"
   target     = "integrations/${aws_apigatewayv2_integration.signup_integration.id}"
 }
 
 # Deploy signup with default stage
-resource "aws_apigatewayv2_stage" "signup_stage" {
+resource "aws_apigatewayv2_stage" "api_stage" {
   api_id      = aws_apigatewayv2_api.paypulse_api.id
   name        = "$default"
   auto_deploy = true
@@ -67,6 +69,8 @@ resource "aws_cloudwatch_log_group" "api_gateway_logs" {
   retention_in_days = 30
 }
 
+# --- Endpoint for login ---
+
 # Connect API Gateway to LoginUser lambda function
 resource "aws_apigatewayv2_integration" "login_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
@@ -79,7 +83,7 @@ resource "aws_apigatewayv2_integration" "login_integration" {
 # Create a route (URL path/login)
 resource "aws_apigatewayv2_route" "login_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "POST /login"
+  route_key = "POST /auth/login"
   target    = "integrations/${aws_apigatewayv2_integration.login_integration.id}"
 }
 
@@ -124,6 +128,33 @@ resource "aws_lambda_permission" "login_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.login_user.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}
+
+# --- Endpoint for fetch_invoices ---
+
+# Connect API Gateway to fetch_invoices lambda function
+resource "aws_apigatewayv2_integration" "fetch_invoices_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
+  integration_uri        = aws_lambda_function.fetch_invoices.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path/fetch_invoices)
+resource "aws_apigatewayv2_route" "fetch_invoices_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "POST /user/fetch_invoices"
+  target    = "integrations/${aws_apigatewayv2_integration.fetch_invoices_integration.id}"
+}
+
+# Allow API Gateway to invoke the fetch_invoices lambda function
+resource "aws_lambda_permission" "fetch_invoices_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.fetch_invoices.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }

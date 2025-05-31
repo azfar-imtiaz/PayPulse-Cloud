@@ -1,13 +1,21 @@
 # Wallenstam Invoices table
 
-resource "aws_dynamodb_table" "wallenstam_invoices" {
+resource "aws_dynamodb_table" "rental_invoices" {
   name         = var.invoices_table
   billing_mode = "PROVISIONED"
+  read_capacity  = 5
+  write_capacity = 5
 
   hash_key = var.invoices_table_hash_key
+  range_key = var.invoices_table_range_key
 
   attribute {
     name = var.invoices_table_hash_key
+    type = "S"
+  }
+
+  attribute {
+    name = var.invoices_table_range_key
     type = "S"
   }
   

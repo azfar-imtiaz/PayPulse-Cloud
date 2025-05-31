@@ -16,7 +16,7 @@ def create_user_folder_in_s3(s3, user_id: str, s3_bucket_name: str):
         logging.info(f"Folder for '{user_id}' created successfully in S3.")
     except Exception as e:
         logging.error(f"Error creating S3 folder '{key}' for user '{user_id}': {e}")
-        raise S3Error(f"Error creating S3 folder for user {user_id}") from e
+        raise S3Error(f"Error creating S3 folder for user '{user_id}'") from e
 
 
 def get_s3_path_to_rental_invoices(user_id: str, filename: str) -> str:

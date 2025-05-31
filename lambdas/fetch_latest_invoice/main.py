@@ -1,79 +1,33 @@
 import os
 import json
 import email
+from email.message import Message
+
 import boto3
 import imaplib
-import quopri
 import logging
 from datetime import datetime
-
-from email.header import decode_header
+from typing import Union
 from email.utils import parsedate_to_datetime
-from botocore.exceptions import ClientError
-from boto3.dynamodb.conditions import Key
+
+from utils.dynamodb_utils import invoice_exists_in_dynamodb
+from utils.error_handling import log_and_generate_error_response
+from utils.secretsmanager_utils import get_email_credentials
+from utils.s3_utils import download_and_upload_attachment
+from utils.utils import get_user_id_from_token
+from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
+JWT_SECRET = os.environ['JWT_SECRET']
 
 
-def get_email_credentials():
-    secret_name = os.environ['EMAIL_CREDS']
-    region_name = os.environ['REGION']
-
-    # Create a Secrets Manager client
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name
-    )
-    try:
-        get_secret_value_response = client.get_secret_value(
-            SecretId=secret_name
-        )
-    except ClientError as e:
-        raise e
-
-    secret = get_secret_value_response['SecretString']
-    return json.loads(secret)
-
-
-def decode_string(s):
-    decoded_bytes, charset = decode_header(s)[0]
-    decoded_string = decoded_bytes.decode(charset) \
-        if isinstance(decoded_bytes, bytes) else decoded_bytes
-    return decoded_string
-
-
-def get_body_from_email(s):
-    decoded_bytes = quopri.decodestring(s)
-    decoding_string = decoded_bytes.decode('utf-8')
-    return decoding_string
-
-
-def get_s3_path(email, filename):
-    username = email.split('@')[0]
-    filename = filename.replace(' ', '_')
-    return f"rental-invoices/{username}/{filename}"
-
-
-def invoice_exists_in_dynamodb(current_month, current_year):
-    """
-    This function checks if an invoice with the current month and year exists in the DynamoDB table
-    """
-    table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
-    response = table.query(
-        IndexName='due_date_year-due_date_month-index',
-        KeyConditionExpression=Key('due_date_year').eq(current_year) & Key('due_date_month').eq(current_month)
-    )
-    return len(response.get('Items', [])) > 0
-
-
-def fetch_latest_invoice_email(user, password, imap_url, current_month, current_year):
+def fetch_latest_invoice_email(user_email: str, password: str, imap_url: str, current_month: int, current_year: int) -> Union[None, Message]:
     
     # connect to Gmail using SSL
     my_mail = imaplib.IMAP4_SSL(imap_url)
     # log in using credentials loaded from YAML file
-    my_mail.login(user, password)
+    my_mail.login(user_email, password)
 
     # select the Inbox to fetch messages from
     my_mail.select('Inbox')
@@ -116,55 +70,59 @@ def fetch_latest_invoice_email(user, password, imap_url, current_month, current_
         return None
 
 
-def download_and_upload_attachment(msg, user):
-    for part in msg.walk():
-        if part.get_content_type() == 'text/plain':
-            body_string = part.get_payload()
-            body = get_body_from_email(body_string)
-            logging.info(body)
+def lambda_handler(event, context):
+    try:
+        auth_header = event['headers'].get('Authorization')
+        user_id = get_user_id_from_token(auth_header, JWT_SECRET)
+        invoices_table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
 
-        if part.get_content_type() == "application/pdf":
-            filename = part.get_filename()
-            filename = decode_string(filename)                                
-            if filename:
-                logging.info(f"Downloading {filename}...")
-                file_content = part.get_payload(decode=True)
-                s3_key = get_s3_path(user, filename)
-                s3_client.put_object(
-                    Bucket=os.environ['S3_BUCKET'],
-                    Key=s3_key,
-                    Body=file_content
-                )
-                logging.info(f"{filename} uploaded to S3!")
+        current_date = datetime.utcnow()
+        current_year = current_date.year
+        current_month = current_date.month
 
+        if invoice_exists_in_dynamodb(invoices_table, user_id, current_month, current_year):
+            print(f"Invoice for {current_month}/{current_year} already exists. Exiting")
+            return {
+                "statusCode": 200,
+                "body": "Invoice already processed."
+            }
 
-def lambda_handler(event, context):    
-    current_date = datetime.utcnow()
-    current_year = current_date.year
-    current_month = current_date.month
+        # get credentials
+        my_creds = get_email_credentials(user_id, region=os.environ['REGION'])
+        user_email, password, imap_url = my_creds['GMAIL_USER'], my_creds['GMAIL_PASSWORD'], my_creds["GMAIL_IMAP_URL"]
+        logging.info("Retrieved credentials")
 
-    if invoice_exists_in_dynamodb(current_month, current_year):
-        print(f"Invoice for {current_month}/{current_year} already exists. Exiting")
+        invoice_email = fetch_latest_invoice_email(user_email, password, imap_url, current_month, current_year)
+        if not invoice_email:
+            return {
+                "statusCode": 200,
+                "body": f"No invoice for {current_month}/{current_year} found yet."
+            }
+
+        download_and_upload_attachment(
+            s3_client,
+            s3_bucket_name=os.environ['S3_BUCKET'],
+            msg=invoice_email,
+            invoices_found=0,
+            user_id=user_id
+        )
+
         return {
-            "statusCode": 200,
-            "body": "Invoice already processed."
+            'statusCode': 200,
+            'body': "Invoice successfully fetched and uploaded to S3 bucket."
         }
-    
-    # get credentials
-    my_creds = get_email_credentials()
-    user, password, imap_url = my_creds['GMAIL_USER'], my_creds['GMAIL_PASSWORD'], my_creds["GMAIL_IMAP_URL"]
-    logging.info("Retrieved credentials")
-
-    invoice_email = fetch_latest_invoice_email(user, password, imap_url, current_month, current_year)
-    if not invoice_email:
-        return {
-            "statusCode": 200,
-            "body": f"No invoice for {current_month}/{current_year} found yet."
-        }
-
-    download_and_upload_attachment(invoice_email, user)
-
-    return {
-        'statusCode': 200,
-        'body': "Invoice successfully fetched and uploaded to S3 bucket."
-    }
+    except InvalidCredentialsError as e:
+        return log_and_generate_error_response(error_code=401, error_message="Invalid credentials", error=e)
+    except InvalidTokenError as e:
+        return log_and_generate_error_response(error_code=401, error_message="Invalid token", error=e)
+    except TokenExpiredError as e:
+        return log_and_generate_error_response(error_code=401, error_message="Expired token", error=e)
+    except JWTDecodingError as e:
+        return log_and_generate_error_response(error_code=500, error_message="Error decoding JWT token", error=e)
+    except json.JSONDecodeError as e:
+        return log_and_generate_error_response(error_code=400, error_message="Invalid JSON in request body", error=e)
+    except KeyError as e:
+        return log_and_generate_error_response(error_code=400, error_message=f"Missing key in request body: {e}", error=e)
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
+        return log_and_generate_error_response(error_code=500, error_message="Internal Server Error", error=e)

@@ -29,6 +29,16 @@ resource "aws_iam_policy" "signup_lambda_policy" {
       },
       {
         Action = [
+          "dynamodb:Query"
+        ],
+        Effect = "Allow",
+        Resource = [
+          aws_dynamodb_table.users.arn,
+          "arn:aws:dynamodb:eu-west-1:${data.aws_caller_identity.current.account_id}:table/Users/index/Email-index"
+        ]
+      },
+      {
+        Action = [
           "s3:PutObject"
         ],
         Effect = "Allow",
