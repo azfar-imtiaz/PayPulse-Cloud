@@ -61,8 +61,8 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │   ├── terraform.tfvars		# Private secret values (gitignored)
 │   ├── secrets.tf			# AWS Secrets Manager resource
 │   ├── iam.tf			        # IAM roles and policies
-│   ├── iam_signup_lambda.tf	# IAM role and policy for the sign-up lambda function
-│   ├── iam_login_lambda.tf	    # IAM role and policy for the login lambda function
+│   ├── iam_signup_lambda.tf	        # IAM role and policy for the sign-up lambda function
+│   ├── iam_login_lambda.tf	        # IAM role and policy for the login lambda function
 │   ├── iam_delete_user_lambda.tf	# IAM role and policy for the delete-user lambda function
 │   ├── iam_get_rental_invoices_lambda.tf	# IAM role and policy for the get-rental-invoices lambda function
 │   ├── dynamodb.tf			# DynamoDB tables
