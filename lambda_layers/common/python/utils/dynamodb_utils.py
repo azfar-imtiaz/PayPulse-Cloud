@@ -1,14 +1,13 @@
-from multiprocessing.connection import Client
-
 import boto3
 import logging
 from uuid import uuid4
-from typing import Dict
+from typing import Dict, List
 from collections import defaultdict
 from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 
+from utils.utility_functions import remove_user_id_from_invoices
 from utils.exceptions import UserNotFoundError, UserAlreadyExistsError, DatabaseError
 
 
@@ -90,6 +89,20 @@ def is_invoice_already_parsed(current_month: int, current_year: int, invoice_dat
     return len(response.get('Items', [])) > 0
     '''
     return invoice_dates[current_year][current_month]
+
+
+def get_user_rental_invoices(dynamodb_table, user_id: str) -> List:
+    # This returns all rental invoices for a given user
+    try:
+        response = dynamodb_table.query(
+            KeyConditionExpression=Key('UserID').eq(user_id)
+        )
+        invoices = response.get('Items', [])
+        invoices = remove_user_id_from_invoices(invoices)
+        logging.info(f"Retrieved {len(invoices)} rental invoices for user '{user_id}'")
+        return invoices
+    except Exception as e:
+        raise DatabaseError(f"Error getting rental invoices for '{user_id}'") from e
 
 
 def get_all_invoice_dates(dynamodb_table, user_id: str) -> defaultdict:

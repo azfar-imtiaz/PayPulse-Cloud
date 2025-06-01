@@ -168,20 +168,26 @@ variable "lambda_send_rental_invoice_notification" {
 
 variable "lambda_signup_user" {
   type        = string
-  description = "The lambda function called when a new user signs up"
+  description = "The lambda function is called when a new user signs up"
   default     = "signup_user"
 }
 
 variable "lambda_login_user" {
   type        = string
-  description = "The lambda function called when an existing user logs in"
+  description = "The lambda function is called when an existing user logs in"
   default     = "login_user"
 }
 
 variable "lambda_delete_user" {
   type        = string
-  description = "The lambda function called when a user account and all their data is to be deleted"
+  description = "The lambda function deletes all the data for a user in PayPulse-Cloud"
   default     = "delete_user"
+}
+
+variable "lambda_get_rental_invoices" {
+  type        = string
+  description = "The lambda function retrieves all parsed rental invoice data from the RentalInvoices table and returns it"
+  default     = "get_rental_invoices"
 }
 
 variable "rental_invoice_email" {
