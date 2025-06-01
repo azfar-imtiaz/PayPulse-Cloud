@@ -15,7 +15,7 @@ resource "aws_apigatewayv2_integration" "signup_integration" {
   payload_format_version = "2.0"
 }
 
-# Create a route (URL path/signup)
+# Create a route (URL path/auth/signup)
 resource "aws_apigatewayv2_route" "signup_route" {
   api_id     = aws_apigatewayv2_api.paypulse_api.id
   route_key  = "POST /auth/signup"
@@ -80,7 +80,7 @@ resource "aws_apigatewayv2_integration" "login_integration" {
   payload_format_version = "2.0"
 }
 
-# Create a route (URL path/login)
+# Create a route (URL path/auth/login)
 resource "aws_apigatewayv2_route" "login_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
   route_key = "POST /auth/login"
@@ -143,7 +143,7 @@ resource "aws_apigatewayv2_integration" "fetch_invoices_integration" {
   payload_format_version = "2.0"
 }
 
-# Create a route (URL path/fetch_invoices)
+# Create a route (URL path/user/fetch_invoices)
 resource "aws_apigatewayv2_route" "fetch_invoices_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
   route_key = "POST /user/fetch_invoices"
@@ -155,6 +155,33 @@ resource "aws_lambda_permission" "fetch_invoices_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.fetch_invoices.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}
+
+# --- Endpoint for delete_user ---
+
+# Connect APIGateway to delete_user lambda function
+resource "aws_apigatewayv2_integration" "delete_user_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.delete_user.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path/user/delete)
+resource "aws_apigatewayv2_route" "delete_user_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "DELETE /user/delete"
+  target    = "integrations/${aws_apigatewayv2_integration.delete_user_integration.id}"
+}
+
+# Allow APIGateway to invoke the delete_user lambda function
+resource "aws_lambda_permission" "delete_user_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.delete_user.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }

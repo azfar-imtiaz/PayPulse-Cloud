@@ -1,5 +1,6 @@
 import logging
 from email.message import Message
+from multiprocessing.connection import Client
 
 from botocore.exceptions import ClientError
 from utils.exceptions import S3Error
@@ -15,8 +16,20 @@ def create_user_folder_in_s3(s3, user_id: str, s3_bucket_name: str):
         )
         logging.info(f"Folder for '{user_id}' created successfully in S3.")
     except Exception as e:
-        logging.error(f"Error creating S3 folder '{key}' for user '{user_id}': {e}")
         raise S3Error(f"Error creating S3 folder for user '{user_id}'") from e
+
+
+def delete_user_folder_in_s3(s3, user_id: str, s3_bucket_name: str):
+    try:
+        prefix = f"rental-invoices/{user_id}/"
+        response = s3.list_objects_v2(Bucket=s3_bucket_name, Prefix=prefix)
+        objects_deleted_count = 0
+        for obj in response.get('Contents', []):
+            s3.delete_object(Bucket=s3_bucket_name, Key=obj['Key'])
+            objects_deleted_count += 1
+        logging.info(f"{objects_deleted_count} objects deleted from S3!")
+    except Exception as e:
+        raise S3Error(f"Error deleting user folder for {user_id}") from e
 
 
 def get_s3_path_to_rental_invoices(user_id: str, filename: str) -> str:

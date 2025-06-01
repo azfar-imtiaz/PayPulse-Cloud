@@ -34,7 +34,7 @@ resource "aws_iam_policy" "signup_lambda_policy" {
         Effect = "Allow",
         Resource = [
           aws_dynamodb_table.users.arn,
-          "arn:aws:dynamodb:eu-west-1:${data.aws_caller_identity.current.account_id}:table/Users/index/Email-index"
+          "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Users/index/Email-index"
         ]
       },
       {
@@ -42,7 +42,7 @@ resource "aws_iam_policy" "signup_lambda_policy" {
           "s3:PutObject"
         ],
         Effect = "Allow",
-        Resource = "arn:aws:s3:::rental-invoices-bucket/rental-invoices/*"
+        Resource = "arn:aws:s3:::${var.invoices_bucket_name}/*"
       },
       {
         Action = [

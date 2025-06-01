@@ -45,3 +45,17 @@ def get_email_credentials(user_id: str, region: str) -> Dict:
     return json.loads(secret)
 
 
+def delete_email_credentials(secrets_manager, user_id: str):
+    secret_id = f"gmail/user/{user_id}"
+    try:
+        secrets_manager.delete_secret(
+            SecretId=secret_id,
+            ForceDeleteWithoutRecovery=True
+        )
+        logging.info(f"Secret ID {secret_id} successfully deleted!")
+    except secrets_manager.exceptions.ResourceNotFoundException:
+        # this means no secret was found for this user - that's okay I guess
+        logging.warning(f"No secret found for {user_id}")
+        pass
+    except ClientError as e:
+        raise SecretsManagerError(f"Error deleting secret for {user_id}") from e

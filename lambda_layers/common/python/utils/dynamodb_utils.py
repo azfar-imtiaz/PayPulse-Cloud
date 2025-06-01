@@ -1,3 +1,5 @@
+from multiprocessing.connection import Client
+
 import boto3
 import logging
 from uuid import uuid4
@@ -67,6 +69,14 @@ def create_user_in_dynamodb(dynamodb, email: str, name: str, password: str, user
             raise DatabaseError(f"Error creating new user: '{email}'") from e
 
 
+def delete_user_in_dynamodb(dynamodb_table, user_id: str):
+    try:
+        dynamodb_table.delete_item(Key={'UserID': user_id})
+        logging.info(f"User '{user_id}' deleted successfully!")
+    except Exception as e:
+        raise DatabaseError(f"Error deleting user '{user_id}'") from e
+
+
 def is_invoice_already_parsed(current_month: int, current_year: int, invoice_dates: defaultdict) -> bool:
     """
     This function checks if an invoice with the current month and year exists in the provided defaultdict
@@ -134,3 +144,21 @@ def create_invoice_in_dynamodb(dynamodb_table, invoice_id: str, user_id: str, pa
     parsed_data['UserID'] = user_id
     # insert parsed invoice into table
     dynamodb_table.put_item(Item=parsed_data)
+
+
+def delete_user_invoices(dynamodb_table, user_id: str):
+    try:
+        # get all invoices for this user_id
+        response = dynamodb_table.query(
+            KeyConditionExpression=Key('UserID').eq(user_id)
+        )
+        invoices = response['Items']
+        # delete all these invoices one-by-one
+        # TODO: This can be improved by a batch delete operation later?
+        for item in invoices:
+            dynamodb_table.delete_item(
+                Key={'UserID': user_id, 'InvoiceID': item['InvoiceID']}
+            )
+        logging.info(f"{len(invoices)} invoices deleted for user '{user_id}'!")
+    except ClientError as e:
+        raise DatabaseError(f"Error deleting invoices for '{user_id}'") from e

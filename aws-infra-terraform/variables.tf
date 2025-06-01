@@ -178,6 +178,12 @@ variable "lambda_login_user" {
   default     = "login_user"
 }
 
+variable "lambda_delete_user" {
+  type        = string
+  description = "The lambda function called when a user account and all their data is to be deleted"
+  default     = "delete_user"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"
