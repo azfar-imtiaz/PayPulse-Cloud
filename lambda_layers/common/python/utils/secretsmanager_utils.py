@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError
 from utils.exceptions import SecretsManagerError
 
 
-def store_gmail_credentials(secrets_manager, user_id: str, email: str, gmail_app_password: str):
+def store_email_credentials(secrets_manager, user_id: str, email: str, gmail_app_password: str):
     secret_name = f"gmail/user/{user_id}"
     try:
         secret_value = json.dumps({

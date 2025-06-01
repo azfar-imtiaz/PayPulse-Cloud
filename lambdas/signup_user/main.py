@@ -6,7 +6,7 @@ import logging
 from utils.error_handling import log_and_generate_error_response
 from utils.dynamodb_utils import create_user_in_dynamodb
 from utils.s3_utils import create_user_folder_in_s3
-from utils.secretsmanager_utils import store_gmail_credentials
+from utils.secretsmanager_utils import store_email_credentials
 from utils.exceptions import InvalidCredentialsError, DatabaseError, UserAlreadyExistsError, S3Error, SecretsManagerError
 
 dynamodb = boto3.client('dynamodb')
@@ -35,7 +35,7 @@ def lambda_handler(event, context):
         create_user_folder_in_s3(s3, user_id=user_id, s3_bucket_name=S3_BUCKET)
 
         # 3. Store Gmail credentials in SecretsManager
-        store_gmail_credentials(secrets_manager, user_id, email, gmail_app_password)
+        store_email_credentials(secrets_manager, user_id, email, gmail_app_password)
 
         return {
             'statusCode': 201,
