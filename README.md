@@ -55,26 +55,26 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │           ├── jwt
 │               ├── ... jwt package Python scripts
 ├── aws-infra-terraform
-│   ├── main.tf			        # Root module definition (minimal)
-│   ├── provider.tf			# AWS provider configuration
-│   ├── variables.tf		        # Input variables
-│   ├── terraform.tfvars		# Private secret values (gitignored)
-│   ├── secrets.tf			# AWS Secrets Manager resource
-│   ├── iam.tf			        # IAM roles and policies
-│   ├── iam_signup_lambda.tf	        # IAM role and policy for the sign-up lambda function
-│   ├── iam_login_lambda.tf	        # IAM role and policy for the login lambda function
-│   ├── iam_delete_user_lambda.tf	# IAM role and policy for the delete-user lambda function
+│   ├── main.tf			            # Root module definition (minimal)
+│   ├── provider.tf			    # AWS provider configuration
+│   ├── variables.tf		            # Input variables
+│   ├── terraform.tfvars		    # Private secret values (gitignored)
+│   ├── secrets.tf			    # AWS Secrets Manager resource
+│   ├── iam.tf			            # IAM roles and policies
+│   ├── iam_signup_lambda.tf	            # IAM role and policy for the sign-up lambda function
+│   ├── iam_login_lambda.tf	            # IAM role and policy for the login lambda function
+│   ├── iam_delete_user_lambda.tf	    # IAM role and policy for the delete-user lambda function
 │   ├── iam_get_rental_invoices_lambda.tf	# IAM role and policy for the get-rental-invoices lambda function
-│   ├── dynamodb.tf			# DynamoDB tables
-│   ├── dynamodb_autoscaling.tf		# DynamoDB autoscaling config
-│   ├── sns.tf                   	# SNS topic for notifications
-│   ├── cloudwatch.tf            	# CloudWatch log group definitions
-│   ├── cognito.tf               	# Cognito identity pool
-│   ├── lambdas.tf               	# Lambda function definitions
-│   ├── eventbridge.tf           	# Scheduled EventBridge trigger
-│   ├── api_gateway.tf           	# API Gateway for configuration of all endpoints
-│   ├── terraform.tfstate        	# Terraform state file (not in repo)
-└── README.md                	 # You're here!
+│   ├── dynamodb.tf			    # DynamoDB tables
+│   ├── dynamodb_autoscaling.tf		    # DynamoDB autoscaling config
+│   ├── sns.tf                   	    # SNS topic for notifications
+│   ├── cloudwatch.tf            	    # CloudWatch log group definitions
+│   ├── cognito.tf               	    # Cognito identity pool
+│   ├── lambdas.tf               	    # Lambda function definitions
+│   ├── eventbridge.tf           	    # Scheduled EventBridge trigger
+│   ├── api_gateway.tf           	    # API Gateway for configuration of all endpoints
+│   ├── terraform.tfstate        	    # Terraform state file (not in repo)
+└── README.md                	     # You're here!
 ````
 
 ## Getting Started
