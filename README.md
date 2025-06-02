@@ -4,6 +4,9 @@ This repository contains the Cloud backend for the PayPulse app. The backend for
 PayPulse is an iOS app that fetches invoices from a Gmail inbox, parses them, and presents invoice information and statistics. 
 The GitHub link to the PayPulse app can be found [here](https://github.com/azfar-imtiaz/PayPulse).
 
+## Cloud Architecture Diagram
+![Cloud architecture](architecture_diagrams/PayPulse-Architecture.jpg)
+
 ## Project Structure
 ```
 .
