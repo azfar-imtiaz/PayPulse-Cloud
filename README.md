@@ -5,7 +5,7 @@ PayPulse is an iOS app that fetches invoices from a Gmail inbox, parses them, an
 The GitHub link to the PayPulse app can be found [here](https://github.com/azfar-imtiaz/PayPulse).
 
 ## Cloud Architecture Diagram
-![Cloud architecture](architecture_diagrams/PayPulse-Architecture.jpg)
+![Cloud architecture](architecture_diagrams/PayPulse-Architecture.drawio.svg)
 
 ## Project Structure
 ```
