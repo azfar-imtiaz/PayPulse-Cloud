@@ -1,6 +1,5 @@
 import logging
 from email.message import Message
-from multiprocessing.connection import Client
 
 from botocore.exceptions import ClientError
 from utils.exceptions import S3Error

@@ -11,7 +11,7 @@ from typing import Union
 from email.utils import parsedate_to_datetime
 
 from utils.dynamodb_utils import invoice_exists_in_dynamodb
-from utils.error_handling import log_and_generate_error_response
+from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.secretsmanager_utils import get_email_credentials
 from utils.s3_utils import download_and_upload_attachment
 from utils.jwt_utils import get_user_id_from_token
@@ -80,49 +80,52 @@ def lambda_handler(event, context):
         current_year = current_date.year
         current_month = current_date.month
 
-        if invoice_exists_in_dynamodb(invoices_table, user_id, current_month, current_year):
-            print(f"Invoice for {current_month}/{current_year} already exists. Exiting")
-            return {
-                "statusCode": 200,
-                "body": "Invoice already processed."
-            }
+        if not invoice_exists_in_dynamodb(invoices_table, user_id, current_month, current_year):
+            # get credentials
+            my_creds = get_email_credentials(user_id, region=os.environ['REGION'])
+            user_email, password, imap_url = my_creds['GMAIL_USER'], my_creds['GMAIL_PASSWORD'], my_creds[
+                "GMAIL_IMAP_URL"]
+            logging.info("Retrieved credentials")
 
-        # get credentials
-        my_creds = get_email_credentials(user_id, region=os.environ['REGION'])
-        user_email, password, imap_url = my_creds['GMAIL_USER'], my_creds['GMAIL_PASSWORD'], my_creds["GMAIL_IMAP_URL"]
-        logging.info("Retrieved credentials")
+            invoice_email = fetch_latest_invoice_email(user_email, password, imap_url, current_month, current_year)
+            if not invoice_email:
+                return success_response(
+                    message=f"Rental invoice for {current_month}/{current_year} has not been dispatched yet."
+                )
+            else:
+                download_and_upload_attachment(
+                    s3_client,
+                    s3_bucket_name=os.environ['S3_BUCKET'],
+                    msg=invoice_email,
+                    invoices_found=0,
+                    user_id=user_id
+                )
+                return success_response(
+                    message=f"Invoice for {current_month}/{current_year} found and ingested successfully!"
+                )
+        else:
+            logging.info(f"Invoice for {current_month}/{current_year} already exists. Exiting.")
+            return success_response(
+                message=f"Invoice for {current_month}/{current_year} has already been processed."
+            )
 
-        invoice_email = fetch_latest_invoice_email(user_email, password, imap_url, current_month, current_year)
-        if not invoice_email:
-            return {
-                "statusCode": 200,
-                "body": f"No invoice for {current_month}/{current_year} found yet."
-            }
-
-        download_and_upload_attachment(
-            s3_client,
-            s3_bucket_name=os.environ['S3_BUCKET'],
-            msg=invoice_email,
-            invoices_found=0,
-            user_id=user_id
-        )
-
-        return {
-            'statusCode': 200,
-            'body': "Invoice successfully fetched and uploaded to S3 bucket."
-        }
     except InvalidCredentialsError as e:
-        return log_and_generate_error_response(error_code=401, error_message="Invalid credentials", error=e)
+        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)
+
     except InvalidTokenError as e:
-        return log_and_generate_error_response(error_code=401, error_message="Invalid token", error=e)
+        return log_and_generate_error_response(ErrorCode.INVALID_TOKEN, "Malformed Token", 401, e)
+
     except TokenExpiredError as e:
-        return log_and_generate_error_response(error_code=401, error_message="Expired token", error=e)
+        return log_and_generate_error_response(ErrorCode.TOKEN_EXPIRED, "Expired token", 401, e)
+
     except JWTDecodingError as e:
-        return log_and_generate_error_response(error_code=500, error_message="Error decoding JWT token", error=e)
+        return log_and_generate_error_response(ErrorCode.JWT_ERROR, "Error parsing JWT token", 500, e)
+
     except json.JSONDecodeError as e:
-        return log_and_generate_error_response(error_code=400, error_message="Invalid JSON in request body", error=e)
+        return log_and_generate_error_response(ErrorCode.INVALID_JSON, "Invalid JSON in request body", 400, e)
+
     except KeyError as e:
-        return log_and_generate_error_response(error_code=400, error_message=f"Missing key in request body: {e}", error=e)
+        return log_and_generate_error_response(ErrorCode.MISSING_FIELDS, f"Missing key in request body: {e}", 400, e)
+
     except Exception as e:
-        logging.error(f"An unexpected error occurred: {e}")
-        return log_and_generate_error_response(error_code=500, error_message="Internal Server Error", error=e)
+        return log_and_generate_error_response(ErrorCode.INTERNAL_SERVER_ERROR, "Internal Server Error", 500, e)

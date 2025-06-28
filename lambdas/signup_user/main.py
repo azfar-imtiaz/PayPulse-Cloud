@@ -3,15 +3,17 @@ import json
 import boto3
 import logging
 
-from utils.error_handling import log_and_generate_error_response
+from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.dynamodb_utils import create_user_in_dynamodb
 from utils.s3_utils import create_user_folder_in_s3
 from utils.secretsmanager_utils import store_email_credentials
+from utils.jwt_utils import generate_jwt_token
 from utils.exceptions import InvalidCredentialsError, DatabaseError, UserAlreadyExistsError, S3Error, SecretsManagerError
 
 dynamodb = boto3.client('dynamodb')
 secrets_manager = boto3.client('secretsmanager')
 s3 = boto3.client('s3')
+jwt_secret = os.environ['JWT_SECRET']
 
 USERS_TABLE = os.environ['USERS_TABLE']
 S3_BUCKET = os.environ['S3_BUCKET']
@@ -37,26 +39,39 @@ def lambda_handler(event, context):
         # 3. Store Gmail credentials in SecretsManager
         store_email_credentials(secrets_manager, user_id, email, gmail_app_password)
 
-        return {
-            'statusCode': 201,
-            'body': json.dumps({
-                'message': 'User signup setup completed successfully.'
-            })
-        }
+        # 4. Generate JWT Token
+        token = generate_jwt_token(user_id, email, jwt_secret)
+
+        return success_response(
+            message="Signup successful!",
+            data={
+                "username": name,
+                "access_token": token,
+                "token_type": "Bearer"
+            },
+            status_code=201
+        )
+
     except InvalidCredentialsError as e:
-        return log_and_generate_error_response(400, str(e))
+        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, str(e), 400, e)
+
     except UserAlreadyExistsError as e:
-        return log_and_generate_error_response(403, str(e))
+        return log_and_generate_error_response(ErrorCode.USER_ALREADY_EXISTS, str(e), 403, e)
+
     except DatabaseError as e:
-        return log_and_generate_error_response(500, str(e))
+        return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Database error during signup", 502, e)
+
     except S3Error as e:
-        return log_and_generate_error_response(500, str(e))
+        return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Error creating S3 folder", 502, e)
+
     except SecretsManagerError as e:
-        return log_and_generate_error_response(500, str(e))
+        return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Error storing Gmail credentials", 502, e)
+
     except json.JSONDecodeError as e:
-        return log_and_generate_error_response(400, "Invalid JSON in request body", e)
+        return log_and_generate_error_response(ErrorCode.INVALID_JSON, "Invalid JSON in request body", 400, e)
+
     except KeyError as e:
-        return log_and_generate_error_response(400, f"Missing key in request body: {e}")
+        return log_and_generate_error_response(ErrorCode.MISSING_FIELDS, f"Missing key in request body: {e}", 400, e)
+
     except Exception as e:
-        logging.error(f"An unexpected error occurred during signup: {e}")
-        return log_and_generate_error_response(500, "Internal Server Error", e)
+        return log_and_generate_error_response(ErrorCode.INTERNAL_SERVER_ERROR, "Internal Server Error", 500, e)

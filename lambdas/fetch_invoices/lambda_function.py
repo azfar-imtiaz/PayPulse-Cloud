@@ -9,7 +9,7 @@ from email.message import Message
 from email.utils import parsedate_to_datetime
 from botocore.config import Config
 
-from utils.error_handling import log_and_generate_error_response
+from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.utility_functions import decode_string
 from utils.jwt_utils import get_user_id_from_token
 from utils.s3_utils import download_and_upload_attachment
@@ -94,25 +94,37 @@ def lambda_handler(event, context):
         my_mail.close()
         my_mail.logout()
 
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'message': f'{invoices_found} invoices identified, parsed, and uploaded!',
-                'invoiceCount': invoices_found
-            })
-        }
+        if invoices_found > 0:
+            logging.info(f"Ingested {invoices_found} invoices!")
+            return success_response(
+                message="Rental invoices ingested successfully!",
+                data={
+                    "invoiceCount": invoices_found
+                }
+            )
+        else:
+            logging.info(f"No rental invoices found for user {user_id}")
+            return success_response(
+                message="No rental invoices found for this user."
+            )
+
     except InvalidCredentialsError as e:
-        return log_and_generate_error_response(error_code=401, error_message="Invalid credentials", error=e)
+        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)
+
     except InvalidTokenError as e:
-        return log_and_generate_error_response(error_code=401, error_message="Invalid token", error=e)
+        return log_and_generate_error_response(ErrorCode.INVALID_TOKEN, "Malformed Token", 401, e)
+
     except TokenExpiredError as e:
-        return log_and_generate_error_response(error_code=401, error_message="Expired token", error=e)
+        return log_and_generate_error_response(ErrorCode.TOKEN_EXPIRED, "Expired token", 401, e)
+
     except JWTDecodingError as e:
-        return log_and_generate_error_response(error_code=500, error_message="Error decoding JWT token", error=e)
+        return log_and_generate_error_response(ErrorCode.JWT_ERROR, "Error parsing JWT token", 500, e)
+
     except json.JSONDecodeError as e:
-        return log_and_generate_error_response(error_code=400, error_message="Invalid JSON in request body", error=e)
+        return log_and_generate_error_response(ErrorCode.INVALID_JSON, "Invalid JSON in request body", 400, e)
+
     except KeyError as e:
-        return log_and_generate_error_response(error_code=400, error_message=f"Missing key in request body: {e}", error=e)
+        return log_and_generate_error_response(ErrorCode.MISSING_FIELDS, f"Missing key in request body: {e}", 400, e)
+
     except Exception as e:
-        logging.error(f"An unexpected error occurred: {e}")
-        return log_and_generate_error_response(error_code=500, error_message="Internal Server Error", error=e)
+        return log_and_generate_error_response(ErrorCode.INTERNAL_SERVER_ERROR, "Internal Server Error", 500, e)

@@ -205,7 +205,8 @@ resource "aws_lambda_function" "signup_user" {
   environment {
     variables = {
       USERS_TABLE = aws_dynamodb_table.users.name
-      S3_BUCKET   = var.invoices_bucket_name
+      S3_BUCKET   = var.invoices_bucket_name,
+      JWT_SECRET  = data.aws_secretsmanager_secret_version.jwt_secret_version.secret_string
     }
   }
 

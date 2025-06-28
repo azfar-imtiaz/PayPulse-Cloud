@@ -7,7 +7,7 @@ from utils.jwt_utils import get_user_id_from_token
 from utils.s3_utils import delete_user_folder_in_s3
 from utils.dynamodb_utils import delete_user_invoices, delete_user_in_dynamodb
 from utils.secretsmanager_utils import delete_email_credentials
-from utils.error_handling import log_and_generate_error_response
+from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, \
     SecretsManagerError, DatabaseError, S3Error
 
@@ -44,29 +44,38 @@ def lambda_handler(event, context):
 
         logging.info(f"All data for user '{user_id}' deleted successfully!")
 
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'message': f"All data for user '{user_id}' deleted successfully!"
-            })
-        }
+        return success_response(
+            message=f"All data for user {user_id} deleted successfully!"
+        )
 
     except InvalidCredentialsError as e:
-        return log_and_generate_error_response(error_code=401, error_message="Invalid credentials", error=e)
+        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)
+
     except InvalidTokenError as e:
-        return log_and_generate_error_response(error_code=401, error_message="Invalid token", error=e)
+        return log_and_generate_error_response(ErrorCode.INVALID_TOKEN, "Malformed Token", 401, e)
+
     except TokenExpiredError as e:
-        return log_and_generate_error_response(error_code=401, error_message="Expired token", error=e)
+        return log_and_generate_error_response(ErrorCode.TOKEN_EXPIRED, "Expired token", 401, e)
+
     except JWTDecodingError as e:
-        return log_and_generate_error_response(error_code=500, error_message="Error decoding JWT token", error=e)
+        return log_and_generate_error_response(ErrorCode.JWT_ERROR, "Error parsing JWT token", 500, e)
+
     except json.JSONDecodeError as e:
-        return log_and_generate_error_response(error_code=400, error_message="Invalid JSON in request body", error=e)
+        return log_and_generate_error_response(ErrorCode.INVALID_JSON, "Invalid JSON in request body", 400, e)
+
     except DatabaseError as e:
-        return log_and_generate_error_response(error_code=500, error_message="Error deleting user invoices", error=e)
+        return log_and_generate_error_response(
+            ErrorCode.DEPENDENCY_FAILURE,
+            "Database error during user deletion",
+            502,
+            e
+        )
+
     except SecretsManagerError as e:
-        return log_and_generate_error_response(error_code=500, error_message="Error deleting user secrets", error=e)
+        return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Error deleting Gmail credentials", 502, e)
+
     except S3Error as e:
-        return log_and_generate_error_response(error_code=500, error_message="Error deleting user folder in S3", error=e)
+        return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Error deleting S3 folder", 502, e)
+
     except Exception as e:
-        logging.error(f"An unexpected error occurred: {e}")
-        return log_and_generate_error_response(error_code=500, error_message="Internal Server Error", error=e)
+        return log_and_generate_error_response(ErrorCode.INTERNAL_SERVER_ERROR, "Internal Server Error", 500, e)

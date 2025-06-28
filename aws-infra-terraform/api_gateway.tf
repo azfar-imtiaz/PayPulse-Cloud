@@ -4,7 +4,7 @@ resource "aws_apigatewayv2_api" "paypulse_api" {
   protocol_type = "HTTP"
 }
 
-# --- Endpoint for login ---
+# --- Endpoint for signup ---
 
 # Connect API Gateway to SignupUser lambda function
 resource "aws_apigatewayv2_integration" "signup_integration" {
@@ -146,7 +146,7 @@ resource "aws_apigatewayv2_integration" "fetch_invoices_integration" {
 # Create a route (URL path/user/fetch_invoices)
 resource "aws_apigatewayv2_route" "fetch_invoices_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "POST /user/fetch_invoices"
+  route_key = "POST /invoices/{type}/ingest"
   target    = "integrations/${aws_apigatewayv2_integration.fetch_invoices_integration.id}"
 }
 
@@ -173,7 +173,7 @@ resource "aws_apigatewayv2_integration" "delete_user_integration" {
 # Create a route (URL path/user/delete)
 resource "aws_apigatewayv2_route" "delete_user_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "DELETE /user/delete"
+  route_key = "DELETE /user/me"
   target    = "integrations/${aws_apigatewayv2_integration.delete_user_integration.id}"
 }
 
@@ -200,7 +200,7 @@ resource "aws_apigatewayv2_integration" "get_rental_invoices_integration" {
 # Create a route (URL path/user/get_rental_invoices)
 resource "aws_apigatewayv2_route" "get_rental_invoices_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "GET /user/get_rental_invoices"
+  route_key = "GET /invoices/{type}"
   target    = "integrations/${aws_apigatewayv2_integration.get_rental_invoices_integration.id}"
 }
 

@@ -39,7 +39,7 @@ def get_email_credentials(user_id: str, region: str) -> Dict:
             SecretId=secret_name
         )
     except ClientError as e:
-        raise e
+        raise SecretsManagerError("Error retrieving secret") from e
 
     secret = get_secret_value_response['SecretString']
     return json.loads(secret)
