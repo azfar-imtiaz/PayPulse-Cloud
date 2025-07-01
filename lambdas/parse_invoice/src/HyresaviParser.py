@@ -1,6 +1,8 @@
 import re
 
 import logging
+from multiprocessing.managers import Value
+
 import textract
 from datetime import datetime
 from typing import Dict, Union, NoReturn, Tuple
@@ -51,16 +53,43 @@ def parse_line(line: str) -> str:
     return re.sub(r'[*()]', '', line).strip()
 
 
+def convert_str_value_to_int(value: str) -> int:
+    # This helper function converts numeric values to int
+    try:
+        processed_value = re.sub(r'\D', '', value)
+        return int(processed_value)
+    except Exception as e:
+        raise ValueError(f"Could not convert {value} to int!") from e
+
+
+def substitute_missing_fields(extracted_info: Dict) -> Dict:
+    # This helper function substitutes placeholder values for missing fields, and removes unnecessary ones
+    if 'El' not in extracted_info.keys():
+        extracted_info['El'] = 0
+    if 'Kallvatten' not in extracted_info.keys():
+        extracted_info['Kallvatten'] = 0
+    if 'Varmvatten' not in extracted_info.keys():
+        extracted_info['Varmvatten'] = 0
+    if 'Hyra' not in extracted_info:
+        extracted_info['Hyra'] = 0
+
+    for field in ['UserID', 'Mervärdesskatt 25%', 'Retroaktiv hyra avser 2302', 'Retroaktiv hyra avser 2402', 'Retroaktiv hyra avser 2403']:
+        extracted_info.pop(field, None)
+
+    return extracted_info
+
+
 def convert_date_format(date_text: str) -> Dict:
     try:
         datetime_obj = datetime.strptime(date_text, '%Y-%m-%d')
         return {
             'Due Date': datetime_obj.strftime('%d-%m-%Y'),
+            # These two need to be strings so that the index can be built on them
             'due_date_month': str(datetime_obj.month),
             'due_date_year': str(datetime_obj.year)
         }
     except Exception as e:
-        raise InvoiceParseError(f"Error formatting date: {date_text}")
+        raise InvoiceParseError(f"Error formatting date '{date_text}': {str(e)}")
 
 
 def extract_rental_info(text: str) -> Union[Dict, NoReturn]:
@@ -78,10 +107,9 @@ def extract_rental_info(text: str) -> Union[Dict, NoReturn]:
             m = re.search(rg, text)
             if m:
                 extracted_value = m.group(1)
-                # Replace space with comma in the total amount, make it look cleaner
+                # Remove all non-digit characters from the string and convert it to int
                 if title == 'Total Amount':
-                    extracted_value = extracted_value.replace(' ', ',')
-                    extracted_info[title] = extracted_value
+                    extracted_info[title] = convert_str_value_to_int(extracted_value)
                 elif title == 'Due Date':
                     # get the parsed date as string, due date month, and due date year
                     due_date_dict = convert_date_format(extracted_value)
@@ -107,7 +135,7 @@ def extract_rental_info(text: str) -> Union[Dict, NoReturn]:
             elif line.find("Moms:") >= 0:
                 # this information is present in a single line, like this: "Moms: 173"
                 components = [parse_line(x) for x in line.split(':')]
-                extracted_info[components[0]] = components[1]
+                extracted_info[components[0]] = convert_str_value_to_int(components[1])
 
         logging.info(f"Rental breakdown: {rental_breakdown}")
         assert len(rental_breakdown) % 2 == 0
@@ -116,14 +144,17 @@ def extract_rental_info(text: str) -> Union[Dict, NoReturn]:
         for index in range(rental_breakdown_mid):
             parsed_key = parse_line(rental_breakdown[index])
             parsed_value = parse_line(rental_breakdown[index + rental_breakdown_mid])
-            # Replace space with comma in the rent value, to make it look cleaner
-            if parsed_key == 'Hyra':
-                parsed_value = parsed_value.replace(' ', ',')
+            # Convert numeric values to int before returning
+            if parsed_key in ['Hyra', 'El', 'Kallvatten', 'Varmvatten']:
+                parsed_value = convert_str_value_to_int(parsed_value)
             extracted_info[parsed_key] = parsed_value
 
+        extracted_info = substitute_missing_fields(extracted_info)
         return extracted_info
     except AssertionError:
         raise AssertionError("Assertion failed - got something extra or missing!")
+    except ValueError as e:
+        raise InvoiceParseError(f"Error during value conversion: {str(e)}") from e
     except Exception as e:
         raise InvoiceParseError("An unexpected error occurred when parsing an invoice") from e
 

@@ -1,6 +1,8 @@
 import json
 import logging
 
+from utils.utility_functions import convert_decimal_to_int
+
 
 class ErrorCode:
     INVALID_CREDENTIALS = "INVALID_CREDENTIALS"
@@ -23,7 +25,8 @@ def success_response(message: str, data=None, status_code: int = 200):
         'body': json.dumps({
             'message': message,
             'data': data
-        })
+        },
+        default=convert_decimal_to_int)
     }
 
 

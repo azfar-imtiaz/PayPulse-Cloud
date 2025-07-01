@@ -1,6 +1,5 @@
 import os
 import json
-
 import boto3
 import logging
 
@@ -59,6 +58,14 @@ def lambda_handler(event, context):
             ErrorCode.DEPENDENCY_FAILURE,
             "Database error during invoice retrieval",
             502,
+            e
+        )
+
+    except TypeError as e:
+        return log_and_generate_error_response(
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            "Encountered decimal value in response",
+            500,
             e
         )
 

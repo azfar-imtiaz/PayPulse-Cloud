@@ -128,7 +128,8 @@ resource "aws_lambda_function" "parse_invoice" {
   function_name = var.lambda_parse_rental_invoice
   role          = aws_iam_role.wallenstam_lambda_role.arn
   package_type  = "Image"
-  image_uri     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/wallenstam/invoice-parser:20250530T234433"
+  # IMPORTANT: This tag at the end of the image_uri must be replaced everytime a new docker image is generated
+  image_uri     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/wallenstam/invoice-parser:20250701T175847"
   timeout       = 60        # 1 minute
 
   environment {
