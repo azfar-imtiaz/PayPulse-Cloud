@@ -1,5 +1,6 @@
 import quopri
 from typing import List, Dict
+from collections import defaultdict
 from email.header import decode_header
 
 
@@ -16,10 +17,31 @@ def get_body_from_email(s):
     return decoding_string
 
 
-def remove_user_id_from_invoices(invoices: List[Dict]) -> List[Dict]:
+def postprocess_invoices(invoices: List[Dict]) -> Dict:
     """
-    This helper function removes the user ID from all parsed invoices data. We don't want to return that to the app
+    This helper function removes fields which we don't want to return to the app, and sorts them in descending order
     """
-    for index in range(len(invoices)):
-        invoices[index].pop('UserID', None)
-    return invoices
+    invoices_grouped_by_year = defaultdict(lambda: [])
+    for invoice in invoices:
+        invoice.pop('UserID', None)
+        invoice.pop('Mervärdesskatt 25%', None)
+        invoice.pop('Retroaktiv hyra avser 2302', None)
+        invoice.pop('Retroaktiv hyra avser 2402', None)
+        invoice.pop('Retroaktiv hyra avser 2403', None)
+
+        # The following keys are not present in some invoices from 2022.
+        # TODO: This should be done in the parsing
+        if 'El' not in invoice.keys():
+            invoice['El'] = "0"
+        if 'Varmvatten' not in invoice.keys():
+            invoice['Varmvatten'] = "0"
+        if 'Kallvatten' not in invoice.keys():
+            invoice['Kallvatten'] = "0"
+        if 'Hyra' not in invoice.keys():
+            invoice['Hyra'] = "0"
+
+        invoice_year = invoice['due_date_year']
+        # sort the invoices per year in descending order
+        invoices_grouped_by_year[invoice_year].insert(0, invoice)
+
+    return invoices_grouped_by_year

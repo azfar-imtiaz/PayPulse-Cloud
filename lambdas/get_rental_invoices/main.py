@@ -1,6 +1,5 @@
 import os
 import json
-from pyexpat.errors import messages
 
 import boto3
 import logging
@@ -25,13 +24,12 @@ def lambda_handler(event, context):
         auth_header = event['headers'].get('authorization')
         user_id = get_user_id_from_token(auth_header, JWT_SECRET)
 
-        invoices = get_user_rental_invoices(invoices_table, user_id=user_id)
-        if len(invoices) > 0:
-            logging.info(f"Retrieved {len(invoices)} invoices!")
+        invoices, invoices_count = get_user_rental_invoices(invoices_table, user_id=user_id)
+        if invoices_count > 0:
             return success_response(
                 message="Rental invoices retrieved successfully!",
                 data={
-                    "invoiceCount": len(invoices),
+                    "invoiceCount": invoices_count,
                     "invoices": invoices
                 }
             )
