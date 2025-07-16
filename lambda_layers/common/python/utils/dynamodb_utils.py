@@ -1,14 +1,14 @@
 import boto3
 import logging
 from uuid import uuid4
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 from collections import defaultdict
 from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 
 from utils.utility_functions import postprocess_invoices
-from utils.exceptions import UserNotFoundError, UserAlreadyExistsError, DatabaseError
+from utils.exceptions import UserNotFoundError, UserAlreadyExistsError, DatabaseError, NoInvoiceFoundError
 
 
 def fetch_user_by_email(users_table, email: str) -> dict:
@@ -103,6 +103,23 @@ def get_user_rental_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
         return invoices_grouped_by_year, len(invoices)
     except Exception as e:
         raise DatabaseError(f"Error getting rental invoices for '{user_id}'") from e
+
+
+def get_invoice_details(dynamodb_table, user_id: str, invoice_id: str) -> Dict:
+    # This function returns the details for a given invoice ID
+    try:
+        response = dynamodb_table.query(
+            KeyConditionExpression=Key('UserID').eq(user_id) & Key('InvoiceID').eq(invoice_id)
+        )
+        invoices = response.get('Items', [])
+        if len(invoices) == 0:
+            logging.warning(f"No invoice found for user '{user_id}' and invoice '{invoice_id}'")
+            raise ValueError(f"No invoice found for this user and invoice ID!")
+        return invoices[0]
+    except ValueError as e:
+        raise NoInvoiceFoundError from e
+    except Exception as e:
+        raise DatabaseError from e
 
 
 def get_all_invoice_dates(dynamodb_table, user_id: str) -> defaultdict:

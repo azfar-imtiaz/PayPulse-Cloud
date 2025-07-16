@@ -212,3 +212,30 @@ resource "aws_lambda_permission" "get_rental_invoices_api_permission" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
+
+# --- Endpoint for get_rental_invoice ---
+
+# Connect APIGateway to get_rental_invoice lambda function
+resource "aws_apigatewayv2_integration" "get_rental_invoice_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.get_rental_invoice.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path/user/get_rental_invoice)
+resource "aws_apigatewayv2_route" "get_rental_invoice_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "GET /invoices/{type}/{invoice_id}"
+  target    = "integrations/${aws_apigatewayv2_integration.get_rental_invoice_integration.id}"
+}
+
+# Allow APIGateway to invoke the get_rental_invoice lambda function
+resource "aws_lambda_permission" "get_rental_invoice_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.get_rental_invoice.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}

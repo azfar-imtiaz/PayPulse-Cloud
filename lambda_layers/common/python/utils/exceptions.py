@@ -22,6 +22,9 @@ class DatabaseError(Exception):
 class UserAlreadyExistsError(Exception):
     pass
 
+class NoInvoiceFoundError(Exception):
+    pass
+
 class S3Error(Exception):
     pass
 

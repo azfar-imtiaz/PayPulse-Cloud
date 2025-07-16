@@ -190,6 +190,12 @@ variable "lambda_get_rental_invoices" {
   default     = "get_rental_invoices"
 }
 
+variable "lambda_get_rental_invoice" {
+  type        = string
+  description = "The lambda function retrieves all parsed details for a given invoice ID from the RentalInvoices table"
+  default     = "get_rental_invoice"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"

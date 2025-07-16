@@ -42,6 +42,12 @@ data "aws_s3_bucket_object" "get_rental_invoices_zip" {
   key    = "${var.lambda_get_rental_invoices}.zip"
 }
 
+# this fetches the latest version of the get_rental_invoice.zip file from S3
+data "aws_s3_bucket_object" "get_rental_invoice_zip" {
+  bucket = aws_s3_bucket.lambda_bucket.id
+  key    = "${var.lambda_get_rental_invoice}.zip"
+}
+
 # === Fetch_invoices lambda function ===
 resource "aws_lambda_function" "fetch_invoices" {
   description   = "This function is a one-time trigger used to fetch all rental invoices found in the email inbox, download the PDF invoices, and upload them to the S3 bucket."
@@ -318,4 +324,37 @@ resource "aws_lambda_function" "get_rental_invoices" {
   s3_bucket         = aws_s3_bucket.lambda_bucket.id
   s3_key            = "${var.lambda_get_rental_invoices}.zip"
   s3_object_version = data.aws_s3_bucket_object.get_rental_invoices_zip.version_id
+}
+
+# === Get-rental-invoice lambda function ===
+
+resource "aws_lambda_function" "get_rental_invoice" {
+  description   = "This function retrieves all details for a given rental invoice ID."
+  function_name = "get_rental_invoice"
+  role          = aws_iam_role.get_rental_invoice_lambda_role.arn
+  runtime       = var.python_runtime
+  handler       = "main.lambda_handler"
+
+  timeout       = 10
+  memory_size   = 128
+
+  environment {
+    variables = {
+      INVOICES_TABLE = aws_dynamodb_table.rental_invoices.name
+      JWT_SECRET     = data.aws_secretsmanager_secret_version.jwt_secret_version.secret_string
+    }
+  }
+
+  logging_config {
+    log_format = "JSON"
+  }
+
+  layers = [
+    aws_lambda_layer_version.pyjwt_layer.arn,
+    aws_lambda_layer_version.utils_layer.arn
+  ]
+
+  s3_bucket         = aws_s3_bucket.lambda_bucket.id
+  s3_key            = "${var.lambda_get_rental_invoice}.zip"
+  s3_object_version = data.aws_s3_bucket_object.get_rental_invoice_zip.version_id
 }
