@@ -180,9 +180,14 @@ aws-infra-terraform/output.json
 
 .idea/
 .DS_Store
+architecture_diagrams/*.drawio
 
-# Lambda function zip files for uploading them to S3 bucket
+# Lambda function and layer zip files for uploading them to S3 bucket
 lambdas/**/*.zip
+lambda_layers/common/utils_layer.zip
+
+# Lambda layer for JWT
+lambda_layers/jwt/python/
 
 # These yaml files are just notes for me
 lambdas/*.yaml
