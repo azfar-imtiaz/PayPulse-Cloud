@@ -170,10 +170,19 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# Terraform .tfvars file
+# Terraform files
 terraform.tfvars
 *.tfstate
 *.backup
+aws-infra-terraform/.terraform.lock.hcl
+aws-infra-terraform/.terraform/
+aws-infra-terraform/output.json
 
 .idea/
 .DS_Store
+
+# Lambda function zip files for uploading them to S3 bucket
+lambdas/**/*.zip
+
+# These yaml files are just notes for me
+lambdas/*.yaml
