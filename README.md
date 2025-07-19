@@ -185,21 +185,22 @@ The following endpoints are deployed in PayPulseAPI via API Gateway, each of the
 The routes are structured like this:
 
 ```
-├── /auth
-│   ├── /signup
-│       ├── POST
-│   ├── /login
-│       ├── POST
-├── /invoices
-│   ├── {type}
-│           ├── GET
-│       ├── {invoice_id}
-│           ├── GET
-│       ├── /ingest
+├── /v1
+│   ├── /auth
+│       ├── /signup
 │           ├── POST
-├── /user
-│   ├── /me
-│       ├── DELETE
+│       ├── /login
+│           ├── POST
+│   ├── /invoices
+│       ├── {type}
+│               ├── GET
+│           ├── {invoice_id}
+│               ├── GET
+│           ├── /ingest
+│               ├── POST
+│   ├── /user
+│       ├── /me
+│           ├── DELETE
 ```
 
 JWT token based authentication has been implemented here. The login call returns an access token, which must be attached to the header of all other API calls (apart from sign-up of course). This allows the lambda function against the API call to retrieve the user ID from the token and perform the operation for that specific user.
