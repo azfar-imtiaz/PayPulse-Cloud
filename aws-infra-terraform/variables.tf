@@ -208,6 +208,14 @@ variable "rental_invoice_email_subject" {
   default     = "hyresavi"
 }
 
+# API Gateway
+
+variable "api_version" {
+  type        = string
+  description = "This is used to maintain versioning of the API through Terraform"
+  default     = "v1"
+}
+
 # Cognito
 
 variable "identity_pool_name" {

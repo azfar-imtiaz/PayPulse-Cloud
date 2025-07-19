@@ -18,7 +18,7 @@ resource "aws_apigatewayv2_integration" "signup_integration" {
 # Create a route (URL path/auth/signup)
 resource "aws_apigatewayv2_route" "signup_route" {
   api_id     = aws_apigatewayv2_api.paypulse_api.id
-  route_key  = "POST /auth/signup"
+  route_key  = "POST /${var.api_version}/auth/signup"
   target     = "integrations/${aws_apigatewayv2_integration.signup_integration.id}"
 }
 
@@ -83,7 +83,7 @@ resource "aws_apigatewayv2_integration" "login_integration" {
 # Create a route (URL path/auth/login)
 resource "aws_apigatewayv2_route" "login_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "POST /auth/login"
+  route_key = "POST /${var.api_version}/auth/login"
   target    = "integrations/${aws_apigatewayv2_integration.login_integration.id}"
 }
 
@@ -146,7 +146,7 @@ resource "aws_apigatewayv2_integration" "fetch_invoices_integration" {
 # Create a route (URL path/user/fetch_invoices)
 resource "aws_apigatewayv2_route" "fetch_invoices_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "POST /invoices/{type}/ingest"
+  route_key = "POST /${var.api_version}/invoices/{type}/ingest"
   target    = "integrations/${aws_apigatewayv2_integration.fetch_invoices_integration.id}"
 }
 
@@ -173,7 +173,7 @@ resource "aws_apigatewayv2_integration" "delete_user_integration" {
 # Create a route (URL path/user/delete)
 resource "aws_apigatewayv2_route" "delete_user_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "DELETE /user/me"
+  route_key = "DELETE /${var.api_version}/user/me"
   target    = "integrations/${aws_apigatewayv2_integration.delete_user_integration.id}"
 }
 
@@ -200,7 +200,7 @@ resource "aws_apigatewayv2_integration" "get_rental_invoices_integration" {
 # Create a route (URL path/user/get_rental_invoices)
 resource "aws_apigatewayv2_route" "get_rental_invoices_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "GET /invoices/{type}"
+  route_key = "GET /${var.api_version}/invoices/{type}"
   target    = "integrations/${aws_apigatewayv2_integration.get_rental_invoices_integration.id}"
 }
 
@@ -227,7 +227,7 @@ resource "aws_apigatewayv2_integration" "get_rental_invoice_integration" {
 # Create a route (URL path/user/get_rental_invoice)
 resource "aws_apigatewayv2_route" "get_rental_invoice_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "GET /invoices/{type}/{invoice_id}"
+  route_key = "GET /${var.api_version}/invoices/{type}/{invoice_id}"
   target    = "integrations/${aws_apigatewayv2_integration.get_rental_invoice_integration.id}"
 }
 
