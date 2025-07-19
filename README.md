@@ -11,35 +11,40 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 ```
 .
 ├── lambdas
-│   ├── login_user
-│       ├── main.py
-│       ├── requirements.txt
-│   ├── signup_user
-│       ├── main.py
-│       ├── requirements.txt
-│   ├── fetch_invoices	
-│       ├── lambda_function.py
-│       ├── requirements.txt
-│   ├── fetch_latest_invoice
-│       ├── main.py
-│       ├── requirements.txt
-│   ├── parse_invoice
-│       ├── src
-│           ├── HyresaviParser.py
+│   ├── invoices
+│       ├── fetch_invoices	
 │           ├── lambda_function.py
-│           ├── logging_config.py
-│       ├── Dockerfile
-│       ├── event.json
-│       ├── requirements.txt
-│   ├── get_rental_invoices
-│       ├── main.py
-│       ├── requirements.txt
-│   ├── delete_user
-│       ├── main.py
-│       ├── requirements.txt
-│   ├── send_invoice_notification
-│       ├── main.py
-│       ├── requirements.txt
+│           ├── requirements.txt
+│       ├── fetch_latest_invoice
+│           ├── main.py
+│           ├── requirements.txt
+│       ├── parse_invoice
+│           ├── src
+│               ├── HyresaviParser.py
+│               ├── lambda_function.py
+│               ├── logging_config.py
+│           ├── Dockerfile
+│           ├── event.json
+│           ├── requirements.txt
+│       ├── get_rental_invoice
+│           ├── main.py
+│           ├── requirements.txt
+│       ├── get_rental_invoices
+│           ├── main.py
+│           ├── requirements.txt
+│       ├── send_invoice_notification
+│           ├── main.py
+│           ├── requirements.txt
+│   ├── users
+│       ├── login_user
+│           ├── main.py
+│           ├── requirements.txt
+│       ├── signup_user
+│           ├── main.py
+│           ├── requirements.txt
+│       ├── delete_user
+│           ├── main.py
+│           ├── requirements.txt
 ├── lambda_layers
 │   ├── common
 │       ├── python
@@ -52,6 +57,7 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │               ├── secretsmanager_utils.py
 │               ├── utility_functions.py
 │               ├── error_handling.py
+│               ├── responses.py
 │               ├── exceptions.py
 │   ├── jwt
 │       ├── python
@@ -67,6 +73,7 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │   ├── iam_signup_lambda.tf	            # IAM role and policy for the sign-up lambda function
 │   ├── iam_login_lambda.tf	            # IAM role and policy for the login lambda function
 │   ├── iam_delete_user_lambda.tf	    # IAM role and policy for the delete-user lambda function
+│   ├── iam_get_rental_invoice_lambda.tf   # IAM role and policy for the get-rental-invoice lambda function
 │   ├── iam_get_rental_invoices_lambda.tf   # IAM role and policy for the get-rental-invoices lambda function
 │   ├── dynamodb.tf			    # DynamoDB tables
 │   ├── dynamodb_autoscaling.tf		    # DynamoDB autoscaling config
@@ -115,10 +122,11 @@ Here, the user ID is generated dynamically, which happens when a user signs up. 
 #### - Lambda functions bucket
 
 This bucket is for containing the source code of the following lambda functions:
-- Fetch all invoices
-- Fetch latest invoice
+- Ingest all invoices
+- Ingest latest invoice
 - Send invoice notification
-- Get rental invoices
+- Get invoice
+- Get invoices
 - Delete user
 - Login
 - Signup
@@ -131,16 +139,17 @@ That's how these lambda functions are deployed.
 
 There are several lambda functions, and some of them are linked, in a way. The execution of one triggers a chain of events.
 
-| Function | Function name | Trigger | Description | Deployment |
-| :-------------: | :-------: | :-------: | ------- | ------- |
-| Login | `login_user` | API Gateway | This function allows an existing user to login, and returns an access token | Zip upload to S3 bucket |
-| Sign up | `signup_user` | API Gateway | This function allows a new user to sign up to PayPulse | Zip upload to S3 bucket |
-| Fetch all invoices  | `fetch_invoices` | API Gateway | This function fetches all rental invoices from the email inbox | Zip upload to S3 bucket |
-| Fetch latest invoice | `fetch_latest_invoice` | EventBridge (every weekday 8:30 AM) | This function fetches the rental invoice for the current month, if available | Zip upload to S3 bucket |
-| Parse invoice | `parse_invoice` | S3 (rental invoice upload) | This function parses a rental invoice and stores the information in DynamoDB | Docker image pushed to ECR repository |
-| Get rental invoices | `get_rental_invoices` | API Gateway | This function retrieves and returns all invoices for a logged-in user | Zip upload to S3 bucket |
-| Delete user | `delete_user` | API Gateway | This function deletes all data for a given user in PayPulse Cloud | Zip upload to S3 bucket |
-| Send invoice notification | `send_invoice_notification` | DynamoDB stream | This function sends an email and iOS notification everytime a new rental invoice is parsed | Zip upload to S3 bucket |
+|         Function          |        Function name        | Trigger | Description                                                                                                              | Deployment |
+|:-------------------------:|:---------------------------:| :-------: |--------------------------------------------------------------------------------------------------------------------------| ------- |
+|           Login           |        `login_user`         | API Gateway | This function allows an existing user to login, and returns an access token                                              | Zip upload to S3 bucket |
+|          Sign up          |        `signup_user`        | API Gateway | This function allows a new user to sign up to PayPulse                                                                   | Zip upload to S3 bucket |
+|    Ingest all invoices    |      `fetch_invoices`       | API Gateway | This function fetches all rental invoices from the email inbox                                                           | Zip upload to S3 bucket |
+|   Ingest latest invoice   |   `fetch_latest_invoice`    | EventBridge (every weekday 8:30 AM) | This function fetches the rental invoice for the current month, if available                                             | Zip upload to S3 bucket |
+|       Parse invoice       |       `parse_invoice`       | S3 (rental invoice upload) | This function parses a rental invoice and stores the information in DynamoDB                                             | Docker image pushed to ECR repository |
+|        Get invoice        |    `get_rental_invoice`     | API Gateway | This function retrieves the full invoice details for a given invoice ID. **This is not being used in the app right now** | Zip upload to S3 bucket |
+|       Get invoices        |    `get_rental_invoices`    | API Gateway | This function retrieves and returns all invoices for a logged-in user                                                    | Zip upload to S3 bucket |
+|        Delete user        |        `delete_user`        | API Gateway | This function deletes all data for a given user in PayPulse Cloud                                                        | Zip upload to S3 bucket |
+| Send invoice notification | `send_invoice_notification` | DynamoDB stream | This function sends an email and iOS notification everytime a new rental invoice is parsed                               | Zip upload to S3 bucket |
 
 1. The `fetch_latest_invoice` function is triggered once every weekday in the morning. It looks for the latest rental invoice, by checking to see if there is a rental invoice available for the current month for which there is not already a corresponding record in the DynamoDB table. If it finds such an invoice, it uploads it to a specific path in the rental invoices S3 bucket. 
 2. This triggers the `parse_invoice` function, which downloads this rental invoice, parses the relevant information from it, and uploads it to the DynamoDB table containing the data of parsed invoices.
@@ -163,13 +172,15 @@ Everytime there is a change or addition to the common utility functions, I gener
 
 The following endpoints are deployed in PayPulseAPI via API Gateway, each of them linked to their corresponding lambda functions:
 
-| Endpoint | Lambda function |
-| :-------------: | :-------: |
-| Login | login_user |
-| Sign up | signup_user |
-| Fetch all invoices | fetch_invoices |
-| Get latest invoice | get_latest_invoice |
-| Delete user | delete_user |
+|       Endpoint       |   Lambda function    |
+|:--------------------:|:--------------------:|
+|        Login         |      login_user      |
+|       Sign up        |     signup_user      |
+|  Fetch all invoices  |    fetch_invoices    |
+| Fetch latest invoice | fetch_latest_invoice |
+|     Get invoices     | get_rental_invoices  |
+| Get invoice details  |  get_rental_invoice  |
+|     Delete user      |     delete_user      |
 
 The routes are structured like this:
 
@@ -179,12 +190,15 @@ The routes are structured like this:
 │       ├── POST
 │   ├── /login
 │       ├── POST
+├── /invoices
+│   ├── {type}
+│           ├── GET
+│       ├── {invoice_id}
+│           ├── GET
+│       ├── /ingest
+│           ├── POST
 ├── /user
-│   ├── /fetch_invoices
-│       ├── POST
-│   ├── /get_rental_invoices
-│       ├── GET
-│   ├── /delete_user
+│   ├── /me
 │       ├── DELETE
 ```
 
@@ -244,7 +258,7 @@ Later, I plan on expanding the infrastructure by parsing more invoices of differ
 
 This is for configuring push notifications for iOS devices.
 - Identity Pool: `WallenstamAppIdentityPool`
-- Used for unauthenticated gues access (iOS app)
+- Used for unauthenticated guest access (iOS app)
 
 ### CloudWatch
 I am currently using CloudWatch for monitoring for the lambda functions. Currently, there are the following log groups, each corresponding to the equivalent lambda function:
@@ -253,6 +267,7 @@ I am currently using CloudWatch for monitoring for the lambda functions. Current
 - `/aws/lambda/fetch_invoices`
 - `/aws/lambda/fetch_latest_invoice`
 - `/aws/lambda/parse_invoice`
+- `/aws/lambda/get_rental_invoice`
 - `/aws/lambda/get_rental_invoices`
 - `/aws/lambda/delete_user`
 - `/aws/lambda/send_invoice_notification`
