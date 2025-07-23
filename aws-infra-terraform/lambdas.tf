@@ -87,7 +87,7 @@ resource "aws_lambda_function" "fetch_invoices" {
 
 # === Fetch_latest_invoice lambda function ===
 resource "aws_lambda_function" "fetch_latest_invoice" {
-  description   = "This function is triggered once every weekday. It checks the email to see if there is a new invoice for the current month. If found, it uploads the rental invoice PDF to the S3 bucket."
+  description   = "This function is triggered via API Gateway. It checks to see if an invoice is available for the current month, if not already parsed."
   function_name = var.lambda_fetch_latest_rental_invoice
   handler       = "main.lambda_handler"
   runtime       = var.python_runtime
@@ -102,6 +102,7 @@ resource "aws_lambda_function" "fetch_latest_invoice" {
       EMAIL_SUBJECT       = var.rental_invoice_email_subject
       REGION              = var.aws_region
       S3_BUCKET           = var.invoices_bucket_name
+      JWT_SECRET  = data.aws_secretsmanager_secret_version.jwt_secret_version.secret_string
     }
   }
 
@@ -110,7 +111,8 @@ resource "aws_lambda_function" "fetch_latest_invoice" {
   }
 
   layers = [
-    aws_lambda_layer_version.utils_layer.arn
+    aws_lambda_layer_version.utils_layer.arn,
+    aws_lambda_layer_version.pyjwt_layer.arn
   ]
 
   s3_bucket         = aws_s3_bucket.lambda_bucket.id

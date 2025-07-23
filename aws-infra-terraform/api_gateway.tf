@@ -159,6 +159,33 @@ resource "aws_lambda_permission" "fetch_invoices_api_permission" {
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
 
+# --- Endpoint for fetch_latest_invoice ---
+
+# Connect API Gateway to fetch_invoices lambda function
+resource "aws_apigatewayv2_integration" "fetch_latest_invoice_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
+  integration_uri        = aws_lambda_function.fetch_latest_invoice.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path/user/fetch_latest_invoice)
+resource "aws_apigatewayv2_route" "fetch_latest_invoice_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "POST /${var.api_version}/invoices/{type}/ingest/latest"
+  target    = "integrations/${aws_apigatewayv2_integration.fetch_latest_invoice_integration.id}"
+}
+
+# Allow API Gateway to invoke the fetch_latest_invoice lambda function
+resource "aws_lambda_permission" "fetch_latest_invoice_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.fetch_latest_invoice.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}
+
 # --- Endpoint for delete_user ---
 
 # Connect APIGateway to delete_user lambda function

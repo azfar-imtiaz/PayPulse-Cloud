@@ -158,12 +158,17 @@ def invoice_exists_in_dynamodb(dynamodb_table, user_id: str, current_month: int,
         KeyConditionExpression=Key('due_date_year').eq(current_year) & Key('due_date_month').eq(current_month)
     )
     '''
+    logging.info(f"Searching for invoices in month {current_month} and year {current_year} for user '{user_id}'")
     response = dynamodb_table.scan(
-        FilterExpression=(Key('UserID').eq(user_id) &
-                          Key('due_date_year').eq(current_year) &
-                          Key('due_date_month').eq(current_month))
+        FilterExpression=(Attr('UserID').eq(user_id) &
+                          Attr('due_date_year').eq(str(current_year)) &
+                          Attr('due_date_month').eq(str(current_month)))
     )
-    return len(response.get('Items', [])) > 0
+    items_found = response.get('Items', [])
+    logging.info(f"Found {len(items_found)} items in the table!")
+    for item in items_found:
+        print(item)
+    return len(items_found) > 0
 
 
 def create_invoice_in_dynamodb(dynamodb_table, invoice_id: str, user_id: str, parsed_data: Dict):

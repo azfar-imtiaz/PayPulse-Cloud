@@ -2,13 +2,13 @@ import os
 import json
 import email
 from email.message import Message
+from email.utils import parsedate_to_datetime
 
 import boto3
 import imaplib
 import logging
 from datetime import datetime
 from typing import Union
-from email.utils import parsedate_to_datetime
 
 from utils.dynamodb_utils import invoice_exists_in_dynamodb
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
@@ -72,7 +72,7 @@ def fetch_latest_invoice_email(user_email: str, password: str, imap_url: str, cu
 
 def lambda_handler(event, context):
     try:
-        auth_header = event['headers'].get('Authorization')
+        auth_header = event['headers'].get('authorization')
         user_id = get_user_id_from_token(auth_header, JWT_SECRET)
         invoices_table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
 
@@ -82,6 +82,7 @@ def lambda_handler(event, context):
 
         if not invoice_exists_in_dynamodb(invoices_table, user_id, current_month, current_year):
             # get credentials
+            logging.info(f"No invoice found for {current_month}/{current_year}")
             my_creds = get_email_credentials(user_id, region=os.environ['REGION'])
             user_email, password, imap_url = my_creds['GMAIL_USER'], my_creds['GMAIL_PASSWORD'], my_creds[
                 "GMAIL_IMAP_URL"]
@@ -89,10 +90,13 @@ def lambda_handler(event, context):
 
             invoice_email = fetch_latest_invoice_email(user_email, password, imap_url, current_month, current_year)
             if not invoice_email:
+                logging.info(f"Invoice for {current_month}/{current_year} not found in inbox!")
                 return success_response(
-                    message=f"Rental invoice for {current_month}/{current_year} has not been dispatched yet."
+                    message=f"Rental invoice for {current_month}/{current_year} has not been dispatched yet.",
+                    status_code=204
                 )
             else:
+                logging.info(f"Invoice for {current_month}/{current_year} found in inbox! Downloading...")
                 download_and_upload_attachment(
                     s3_client,
                     s3_bucket_name=os.environ['S3_BUCKET'],
@@ -101,7 +105,8 @@ def lambda_handler(event, context):
                     user_id=user_id
                 )
                 return success_response(
-                    message=f"Invoice for {current_month}/{current_year} found and ingested successfully!"
+                    message=f"Invoice for {current_month}/{current_year} found and ingested successfully!",
+                    status_code=201
                 )
         else:
             logging.info(f"Invoice for {current_month}/{current_year} already exists. Exiting.")
