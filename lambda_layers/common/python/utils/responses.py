@@ -24,6 +24,7 @@ def success_response(message: str, data=None, status_code: int = 200):
         'headers': {"Content-Type": "application/json"},
         'body': json.dumps({
             'message': message,
+            'code': status_code,
             'data': data
         },
         default=convert_decimal_to_int)
