@@ -42,6 +42,9 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │       ├── signup_user
 │           ├── main.py
 │           ├── requirements.txt
+│       ├── get_user_profile
+│           ├── main.py
+│           ├── requirements.txt
 │       ├── delete_user
 │           ├── main.py
 │           ├── requirements.txt
@@ -128,6 +131,7 @@ This bucket is for containing the source code of the following lambda functions:
 - Get invoice
 - Get invoices
 - Delete user
+- Get user profile
 - Login
 - Signup
 
@@ -143,6 +147,7 @@ There are several lambda functions, and some of them are linked, in a way. The e
 |:-------------------------:|:---------------------------:| :-------: |--------------------------------------------------------------------------------------------------------------------------| ------- |
 |           Login           |        `login_user`         | API Gateway | This function allows an existing user to login, and returns an access token                                              | Zip upload to S3 bucket |
 |          Sign up          |        `signup_user`        | API Gateway | This function allows a new user to sign up to PayPulse                                                                   | Zip upload to S3 bucket |
+|       Get user profile    |     `get_user_profile`      | API Gateway | This function retrieves the user profile information (name, email, created date) for the authenticated user             | Zip upload to S3 bucket |
 |    Ingest all invoices    |      `fetch_invoices`       | API Gateway | This function fetches all rental invoices from the email inbox                                                           | Zip upload to S3 bucket |
 |   Ingest latest invoice   |   `fetch_latest_invoice`    | EventBridge (every weekday 8:30 AM) | This function fetches the rental invoice for the current month, if available                                             | Zip upload to S3 bucket |
 |       Parse invoice       |       `parse_invoice`       | S3 (rental invoice upload) | This function parses a rental invoice and stores the information in DynamoDB                                             | Docker image pushed to ECR repository |
@@ -176,6 +181,7 @@ The following endpoints are deployed in PayPulseAPI via API Gateway, each of the
 |:--------------------:|:--------------------:|
 |        Login         |      login_user      |
 |       Sign up        |     signup_user      |
+|   Get user profile   |   get_user_profile   |
 |  Fetch all invoices  |    fetch_invoices    |
 | Fetch latest invoice | fetch_latest_invoice |
 |     Get invoices     | get_rental_invoices  |
@@ -200,6 +206,7 @@ The routes are structured like this:
 │               ├── POST
 │   ├── /user
 │       ├── /me
+│           ├── GET
 │           ├── DELETE
 ```
 
@@ -270,6 +277,7 @@ I am currently using CloudWatch for monitoring for the lambda functions. Current
 - `/aws/lambda/parse_invoice`
 - `/aws/lambda/get_rental_invoice`
 - `/aws/lambda/get_rental_invoices`
+- `/aws/lambda/get_user_profile`
 - `/aws/lambda/delete_user`
 - `/aws/lambda/send_invoice_notification`
 
