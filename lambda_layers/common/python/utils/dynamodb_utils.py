@@ -25,6 +25,17 @@ def fetch_user_by_email(users_table, email: str) -> dict:
     return response['Items'][0]
 
 
+def fetch_user_by_id(users_table, user_id: str) -> dict:
+    response = users_table.get_item(Key={'UserID': user_id})
+    
+    if 'Item' not in response:
+        logging.info(f"User with ID '{user_id}' not found.")
+        raise UserNotFoundError("User not found")
+    
+    logging.info(f"User '{user_id}' fetched successfully from DB!")
+    return response['Item']
+
+
 def create_user_in_dynamodb(dynamodb, email: str, name: str, password: str, users_table_name: str) -> str:
     """
     This function creates an entry for a new user in the Users table. It's triggered when a new user signs up.

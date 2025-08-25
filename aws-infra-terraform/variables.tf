@@ -196,6 +196,12 @@ variable "lambda_get_rental_invoice" {
   default     = "get_rental_invoice"
 }
 
+variable "lambda_get_user_profile" {
+  type        = string
+  description = "The lambda function retrieves the profile information for the authenticated user"
+  default     = "get_user_profile"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"

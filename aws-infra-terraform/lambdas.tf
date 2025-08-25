@@ -48,6 +48,12 @@ data "aws_s3_bucket_object" "get_rental_invoice_zip" {
   key    = "${var.lambda_get_rental_invoice}.zip"
 }
 
+# this fetches the latest version of the get_user_profile.zip file from S3
+data "aws_s3_bucket_object" "get_user_profile_zip" {
+  bucket = aws_s3_bucket.lambda_bucket.id
+  key    = "${var.lambda_get_user_profile}.zip"
+}
+
 # === Fetch_invoices lambda function ===
 resource "aws_lambda_function" "fetch_invoices" {
   description   = "This function is a one-time trigger used to fetch all rental invoices found in the email inbox, download the PDF invoices, and upload them to the S3 bucket."
@@ -359,4 +365,37 @@ resource "aws_lambda_function" "get_rental_invoice" {
   s3_bucket         = aws_s3_bucket.lambda_bucket.id
   s3_key            = "${var.lambda_get_rental_invoice}.zip"
   s3_object_version = data.aws_s3_bucket_object.get_rental_invoice_zip.version_id
+}
+
+# === Get-user-profile lambda function ===
+
+resource "aws_lambda_function" "get_user_profile" {
+  description   = "This function retrieves the profile information for the authenticated user."
+  function_name = "get_user_profile"
+  role          = aws_iam_role.get_user_profile_lambda_role.arn
+  runtime       = var.python_runtime
+  handler       = "main.lambda_handler"
+
+  timeout       = 10
+  memory_size   = 128
+
+  environment {
+    variables = {
+      USERS_TABLE = aws_dynamodb_table.users.name
+      JWT_SECRET  = data.aws_secretsmanager_secret_version.jwt_secret_version.secret_string
+    }
+  }
+
+  logging_config {
+    log_format = "JSON"
+  }
+
+  layers = [
+    aws_lambda_layer_version.pyjwt_layer.arn,
+    aws_lambda_layer_version.utils_layer.arn
+  ]
+
+  s3_bucket         = aws_s3_bucket.lambda_bucket.id
+  s3_key            = "${var.lambda_get_user_profile}.zip"
+  s3_object_version = data.aws_s3_bucket_object.get_user_profile_zip.version_id
 }
