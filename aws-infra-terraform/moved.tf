@@ -236,3 +236,132 @@ moved {
   from = aws_iam_role_policy_attachment.lambda_role_policies["arn:aws:iam::aws:policy/SecretsManagerReadWrite"]
   to   = module.iam.aws_iam_role_policy_attachment.lambda_role_policies["arn:aws:iam::aws:policy/SecretsManagerReadWrite"]
 }
+
+# Lambda resources moved to lambdas module
+moved {
+  from = data.aws_caller_identity.current
+  to   = module.lambdas.data.aws_caller_identity.current
+}
+
+moved {
+  from = data.aws_s3_bucket_object.fetch_invoices_zip
+  to   = module.lambdas.data.aws_s3_bucket_object.fetch_invoices_zip
+}
+
+moved {
+  from = data.aws_s3_bucket_object.fetch_latest_invoice_zip
+  to   = module.lambdas.data.aws_s3_bucket_object.fetch_latest_invoice_zip
+}
+
+moved {
+  from = data.aws_s3_bucket_object.send_invoice_notification_zip
+  to   = module.lambdas.data.aws_s3_bucket_object.send_invoice_notification_zip
+}
+
+moved {
+  from = data.aws_s3_bucket_object.signup_user_zip
+  to   = module.lambdas.data.aws_s3_bucket_object.signup_user_zip
+}
+
+moved {
+  from = data.aws_s3_bucket_object.login_user_zip
+  to   = module.lambdas.data.aws_s3_bucket_object.login_user_zip
+}
+
+moved {
+  from = data.aws_s3_bucket_object.delete_user_zip
+  to   = module.lambdas.data.aws_s3_bucket_object.delete_user_zip
+}
+
+moved {
+  from = data.aws_s3_bucket_object.get_rental_invoices_zip
+  to   = module.lambdas.data.aws_s3_bucket_object.get_rental_invoices_zip
+}
+
+moved {
+  from = data.aws_s3_bucket_object.get_rental_invoice_zip
+  to   = module.lambdas.data.aws_s3_bucket_object.get_rental_invoice_zip
+}
+
+moved {
+  from = data.aws_s3_bucket_object.get_user_profile_zip
+  to   = module.lambdas.data.aws_s3_bucket_object.get_user_profile_zip
+}
+
+# Lambda functions
+moved {
+  from = aws_lambda_function.fetch_invoices
+  to   = module.lambdas.aws_lambda_function.fetch_invoices
+}
+
+moved {
+  from = aws_lambda_function.fetch_latest_invoice
+  to   = module.lambdas.aws_lambda_function.fetch_latest_invoice
+}
+
+moved {
+  from = aws_lambda_function.parse_invoice
+  to   = module.lambdas.aws_lambda_function.parse_invoice
+}
+
+moved {
+  from = aws_lambda_function.send_invoice_notification
+  to   = module.lambdas.aws_lambda_function.send_invoice_notification
+}
+
+moved {
+  from = aws_lambda_function.signup_user
+  to   = module.lambdas.aws_lambda_function.signup_user
+}
+
+moved {
+  from = aws_lambda_function.login_user
+  to   = module.lambdas.aws_lambda_function.login_user
+}
+
+moved {
+  from = aws_lambda_function.delete_user
+  to   = module.lambdas.aws_lambda_function.delete_user
+}
+
+moved {
+  from = aws_lambda_function.get_rental_invoices
+  to   = module.lambdas.aws_lambda_function.get_rental_invoices
+}
+
+moved {
+  from = aws_lambda_function.get_rental_invoice
+  to   = module.lambdas.aws_lambda_function.get_rental_invoice
+}
+
+moved {
+  from = aws_lambda_function.get_user_profile
+  to   = module.lambdas.aws_lambda_function.get_user_profile
+}
+
+# Lambda permissions
+moved {
+  from = aws_lambda_permission.fetch_latest_invoice_event
+  to   = module.lambdas.aws_lambda_permission.fetch_latest_invoice_event
+}
+
+moved {
+  from = aws_lambda_permission.allow_s3_invoke_parse_invoice
+  to   = module.lambdas.aws_lambda_permission.allow_s3_invoke_parse_invoice
+}
+
+# Lambda layers and data sources
+moved {
+  from = data.klayers_package_latest_version.bcrypt
+  to   = module.lambdas.data.klayers_package_latest_version.bcrypt
+}
+
+moved {
+  from = aws_lambda_layer_version.utils_layer
+  to   = module.lambdas.aws_lambda_layer_version.utils_layer
+}
+
+moved {
+  from = aws_lambda_layer_version.pyjwt_layer
+  to   = module.lambdas.aws_lambda_layer_version.pyjwt_layer
+}

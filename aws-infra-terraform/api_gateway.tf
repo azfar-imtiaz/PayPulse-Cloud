@@ -57,7 +57,7 @@ resource "aws_cloudwatch_log_group" "api_gateway_logs" {
 resource "aws_apigatewayv2_integration" "signup_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
   integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
-  integration_uri        = aws_lambda_function.signup_user.invoke_arn
+  integration_uri        = module.lambdas.signup_user_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
@@ -73,7 +73,7 @@ resource "aws_apigatewayv2_route" "signup_route" {
 resource "aws_lambda_permission" "signup_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.signup_user.function_name
+  function_name = module.lambdas.signup_user_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
@@ -84,7 +84,7 @@ resource "aws_lambda_permission" "signup_api_permission" {
 resource "aws_apigatewayv2_integration" "login_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
   integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
-  integration_uri        = aws_lambda_function.login_user.invoke_arn
+  integration_uri        = module.lambdas.login_user_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
@@ -101,7 +101,7 @@ resource "aws_apigatewayv2_route" "login_route" {
 resource "aws_lambda_permission" "login_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.login_user.function_name
+  function_name = module.lambdas.login_user_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
@@ -112,7 +112,7 @@ resource "aws_lambda_permission" "login_api_permission" {
 resource "aws_apigatewayv2_integration" "fetch_invoices_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
   integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
-  integration_uri        = aws_lambda_function.fetch_invoices.invoke_arn
+  integration_uri        = module.lambdas.fetch_invoices_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
@@ -128,7 +128,7 @@ resource "aws_apigatewayv2_route" "fetch_invoices_route" {
 resource "aws_lambda_permission" "fetch_invoices_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.fetch_invoices.function_name
+  function_name = module.lambdas.fetch_invoices_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
@@ -139,7 +139,7 @@ resource "aws_lambda_permission" "fetch_invoices_api_permission" {
 resource "aws_apigatewayv2_integration" "fetch_latest_invoice_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
   integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
-  integration_uri        = aws_lambda_function.fetch_latest_invoice.invoke_arn
+  integration_uri        = module.lambdas.fetch_latest_invoice_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
@@ -155,7 +155,7 @@ resource "aws_apigatewayv2_route" "fetch_latest_invoice_route" {
 resource "aws_lambda_permission" "fetch_latest_invoice_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.fetch_latest_invoice.function_name
+  function_name = module.lambdas.fetch_latest_invoice_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
@@ -166,7 +166,7 @@ resource "aws_lambda_permission" "fetch_latest_invoice_api_permission" {
 resource "aws_apigatewayv2_integration" "delete_user_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
   integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.delete_user.invoke_arn
+  integration_uri        = module.lambdas.delete_user_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
@@ -182,7 +182,7 @@ resource "aws_apigatewayv2_route" "delete_user_route" {
 resource "aws_lambda_permission" "delete_user_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.delete_user.function_name
+  function_name = module.lambdas.delete_user_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
@@ -193,7 +193,7 @@ resource "aws_lambda_permission" "delete_user_api_permission" {
 resource "aws_apigatewayv2_integration" "get_rental_invoices_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
   integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.get_rental_invoices.invoke_arn
+  integration_uri        = module.lambdas.get_rental_invoices_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
@@ -209,7 +209,7 @@ resource "aws_apigatewayv2_route" "get_rental_invoices_route" {
 resource "aws_lambda_permission" "get_rental_invoices_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.get_rental_invoices.function_name
+  function_name = module.lambdas.get_rental_invoices_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
@@ -220,7 +220,7 @@ resource "aws_lambda_permission" "get_rental_invoices_api_permission" {
 resource "aws_apigatewayv2_integration" "get_rental_invoice_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
   integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.get_rental_invoice.invoke_arn
+  integration_uri        = module.lambdas.get_rental_invoice_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
@@ -236,7 +236,7 @@ resource "aws_apigatewayv2_route" "get_rental_invoice_route" {
 resource "aws_lambda_permission" "get_rental_invoice_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.get_rental_invoice.function_name
+  function_name = module.lambdas.get_rental_invoice_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
@@ -247,7 +247,7 @@ resource "aws_lambda_permission" "get_rental_invoice_api_permission" {
 resource "aws_apigatewayv2_integration" "get_user_profile_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
   integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.get_user_profile.invoke_arn
+  integration_uri        = module.lambdas.get_user_profile_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
@@ -263,7 +263,7 @@ resource "aws_apigatewayv2_route" "get_user_profile_route" {
 resource "aws_lambda_permission" "get_user_profile_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.get_user_profile.function_name
+  function_name = module.lambdas.get_user_profile_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }

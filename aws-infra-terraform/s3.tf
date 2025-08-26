@@ -69,11 +69,11 @@ resource "aws_s3_bucket_notification" "invoice_upload_trigger" {
   bucket = aws_s3_bucket.rental_invoices.id
 
   lambda_function {
-    lambda_function_arn = aws_lambda_function.parse_invoice.arn
+    lambda_function_arn = module.lambdas.parse_invoice_arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = var.path_to_invoices
     filter_suffix       = ".pdf"
   }
 
-  depends_on = [aws_lambda_permission.allow_s3_invoke_parse_invoice]
+  depends_on = [module.lambdas]
 }
