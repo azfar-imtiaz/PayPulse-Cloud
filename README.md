@@ -67,26 +67,47 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │           ├── jwt
 │               ├── ... jwt package Python scripts
 ├── aws-infra-terraform
-│   ├── main.tf			            # Root module definition (minimal)
-│   ├── provider.tf			    # AWS provider configuration
-│   ├── variables.tf		            # Input variables
+│   ├── main.tf			            # Root module definition with IAM and Lambda modules
+│   ├── variables.tf		            # Global input variables
+│   ├── outputs.tf                          # Global outputs
 │   ├── terraform.tfvars		    # Private secret values (gitignored)
-│   ├── secrets.tf			    # AWS Secrets Manager resource
-│   ├── iam.tf			            # IAM roles and policies
-│   ├── iam_signup_lambda.tf	            # IAM role and policy for the sign-up lambda function
-│   ├── iam_login_lambda.tf	            # IAM role and policy for the login lambda function
-│   ├── iam_delete_user_lambda.tf	    # IAM role and policy for the delete-user lambda function
-│   ├── iam_get_rental_invoice_lambda.tf   # IAM role and policy for the get-rental-invoice lambda function
-│   ├── iam_get_rental_invoices_lambda.tf   # IAM role and policy for the get-rental-invoices lambda function
+│   ├── moved.tf                            # Resource state migration configuration
+│   ├── secrets.tf			    # AWS Secrets Manager resources
 │   ├── dynamodb.tf			    # DynamoDB tables
-│   ├── dynamodb_autoscaling.tf		    # DynamoDB autoscaling config
+│   ├── dynamodb_autoscaling.tf		    # DynamoDB autoscaling configuration
 │   ├── sns.tf                   	    # SNS topic for notifications
 │   ├── cloudwatch.tf            	    # CloudWatch log group definitions
 │   ├── cognito.tf               	    # Cognito identity pool
-│   ├── lambdas.tf               	    # Lambda function definitions
 │   ├── eventbridge.tf           	    # Scheduled EventBridge trigger
-│   ├── api_gateway.tf           	    # API Gateway for configuration of all endpoints
-│   ├── terraform.tfstate        	    # Terraform state file (not in repo)
+│   ├── api_gateway.tf           	    # API Gateway configuration for all endpoints
+│   ├── s3.tf                              # S3 buckets and notifications
+│   ├── iam/                               # IAM module (organized by resource type)
+│   │   ├── main.tf                        # IAM module configuration
+│   │   ├── variables.tf                   # IAM module input variables
+│   │   ├── outputs.tf                     # IAM role ARNs and outputs
+│   │   ├── iam.tf                         # Main IAM resources (users, groups, roles)
+│   │   ├── iam_signup_lambda.tf           # IAM role and policy for signup lambda
+│   │   ├── iam_login_lambda.tf            # IAM role and policy for login lambda
+│   │   ├── iam_delete_user_lambda.tf      # IAM role and policy for delete user lambda
+│   │   ├── iam_get_rental_invoice_lambda.tf     # IAM role and policy for get rental invoice lambda
+│   │   ├── iam_get_rental_invoices_lambda.tf    # IAM role and policy for get rental invoices lambda
+│   │   └── iam_get_user_profile_lambda.tf       # IAM role and policy for get user profile lambda
+│   ├── lambdas/                           # Lambda functions module (organized by function)
+│   │   ├── main.tf                        # Lambda module configuration
+│   │   ├── variables.tf                   # Lambda module input variables  
+│   │   ├── outputs.tf                     # Lambda function names, ARNs, and layers
+│   │   ├── lambda_fetch_invoices.tf       # Fetch invoices lambda function
+│   │   ├── lambda_fetch_latest_invoice.tf # Fetch latest invoice lambda function
+│   │   ├── lambda_parse_invoice.tf        # Parse invoice lambda function
+│   │   ├── lambda_send_invoice_notification.tf  # Send notification lambda function
+│   │   ├── lambda_signup_user.tf          # User signup lambda function
+│   │   ├── lambda_login_user.tf           # User login lambda function
+│   │   ├── lambda_delete_user.tf          # Delete user lambda function
+│   │   ├── lambda_get_rental_invoices.tf  # Get rental invoices lambda function
+│   │   ├── lambda_get_rental_invoice.tf   # Get rental invoice lambda function
+│   │   ├── lambda_get_user_profile.tf     # Get user profile lambda function
+│   │   └── lambda_layers.tf               # Lambda layers (utils, JWT, bcrypt)
+│   └── terraform.tfstate        	    # Terraform state file (not in repo)
 └── README.md                	            # You're here!
 ```
 
@@ -109,6 +130,24 @@ terraform apply
 ```
 
 ## Infrastructure Overview
+
+### Terraform Architecture
+
+The infrastructure uses a modular Terraform approach for better organization and maintainability.
+
+#### Root Module (`aws-infra-terraform/`)
+- **main.tf**: Orchestrates the entire infrastructure by calling IAM and Lambda modules
+- **variables.tf**: Global variables shared across all modules
+- **outputs.tf**: Infrastructure outputs for external consumption
+- **moved.tf**: Handles state migration when resources are moved between modules
+
+#### IAM Module (`aws-infra-terraform/iam/`)
+- **Purpose**: Centralized IAM management (roles, policies, users, groups)
+- **Organization**: Each Lambda function has its own IAM configuration file
+
+#### Lambda Module (`aws-infra-terraform/lambdas/`)
+- **Purpose**: All Lambda function definitions and related resources
+- **Organization**: Each Lambda function has its own configuration file
 
 ### S3 Bucket
 This infrastructure consists of two S3 buckets:
