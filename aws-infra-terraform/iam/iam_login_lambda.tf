@@ -25,14 +25,14 @@ resource "aws_iam_policy" "login_lambda_policy" {
           "dynamodb:Query"
         ],
         Effect = "Allow",
-        Resource = aws_dynamodb_table.users.arn
+        Resource = var.users_table_arn
       },
       {
         Action = [
           "secretsmanager:GetSecretValue"
         ],
         Effect = "Allow",
-        Resource = data.aws_secretsmanager_secret.jwt_secret.arn
+        Resource = var.jwt_secret_arn
       }
     ]
   })

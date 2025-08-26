@@ -25,7 +25,7 @@ resource "aws_iam_policy" "signup_lambda_policy" {
           "dynamodb:GetItem"
         ],
         Effect = "Allow",
-        Resource = aws_dynamodb_table.users.arn
+        Resource = var.users_table_arn
       },
       {
         Action = [
@@ -33,8 +33,8 @@ resource "aws_iam_policy" "signup_lambda_policy" {
         ],
         Effect = "Allow",
         Resource = [
-          aws_dynamodb_table.users.arn,
-          "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/Users/index/Email-index"
+          var.users_table_arn,
+          "${var.users_table_arn}/index/Email-index"
         ]
       },
       {

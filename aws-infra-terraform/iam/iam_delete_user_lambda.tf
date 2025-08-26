@@ -25,8 +25,8 @@ resource "aws_iam_policy" "delete_user_lambda_policy" {
           "dynamodb:Scan"
         ],
         Resource = [
-          aws_dynamodb_table.rental_invoices.arn,
-          aws_dynamodb_table.users.arn
+          var.rental_invoices_table_arn,
+          var.users_table_arn
         ]
       },
       {

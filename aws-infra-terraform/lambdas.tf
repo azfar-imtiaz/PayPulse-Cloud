@@ -60,7 +60,7 @@ resource "aws_lambda_function" "fetch_invoices" {
   function_name = var.lambda_fetch_rental_invoices
   handler       = "lambda_function.lambda_handler"
   runtime       = var.python_runtime
-  role          = aws_iam_role.wallenstam_lambda_role.arn
+  role          = module.iam.wallenstam_lambda_role_arn
   timeout       = 300 # this is in seconds, so equals 5 minutes
 
   environment {
@@ -97,7 +97,7 @@ resource "aws_lambda_function" "fetch_latest_invoice" {
   function_name = var.lambda_fetch_latest_rental_invoice
   handler       = "main.lambda_handler"
   runtime       = var.python_runtime
-  role          = aws_iam_role.wallenstam_lambda_role.arn
+  role          = module.iam.wallenstam_lambda_role_arn
   timeout       = 60 # this is in seconds, so equals 1 minute
 
   environment {
@@ -140,7 +140,7 @@ resource "aws_lambda_permission" "fetch_latest_invoice_event" {
 resource "aws_lambda_function" "parse_invoice" {
   description   = "This function is triggered whenever a new rental invoice PDF is uploaded to the S3 bucket. It parses the function and inserts the rental invoice details into the DynamoDB table."
   function_name = var.lambda_parse_rental_invoice
-  role          = aws_iam_role.wallenstam_lambda_role.arn
+  role          = module.iam.wallenstam_lambda_role_arn
   package_type  = "Image"
   # IMPORTANT: This tag at the end of the image_uri must be replaced everytime a new docker image is generated
   image_uri     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/wallenstam/invoice-parser:20250701T175847"
@@ -170,7 +170,7 @@ resource "aws_lambda_function" "send_invoice_notification" {
   function_name = var.lambda_send_rental_invoice_notification
   handler       = "main.lambda_handler"
   runtime       = var.python_runtime
-  role          = aws_iam_role.wallenstam_lambda_role.arn
+  role          = module.iam.wallenstam_lambda_role_arn
   timeout       = 3
 
   environment {
@@ -212,7 +212,7 @@ resource "aws_lambda_function" "signup_user" {
   function_name = var.lambda_signup_user
   handler       = "main.lambda_handler"
   runtime       = var.python_runtime
-  role          = aws_iam_role.signup_lambda_role.arn
+  role          = module.iam.signup_lambda_role_arn
 
   timeout       = 15
   memory_size   = 128
@@ -241,7 +241,7 @@ resource "aws_lambda_function" "signup_user" {
 resource "aws_lambda_function" "login_user" {
   description   = "This function is triggered via the iOS app when an existing user logs in. It receives the user's email and password, verifies the user details, and then returns the access token in the response."
   function_name = "login_user"
-  role          = aws_iam_role.wallenstam_lambda_role.arn
+  role          = module.iam.wallenstam_lambda_role_arn
   runtime       = "python3.9"
   handler       = "main.lambda_handler"
 
@@ -271,7 +271,7 @@ resource "aws_lambda_function" "login_user" {
 resource "aws_lambda_function" "delete_user" {
   description   = "This function is used to delete a user's account from PayPulse. This deletes the user's invoices from the RentalInvoices table, their secrets, their S3 folder, and finally their record from the Users table."
   function_name = "delete_user"
-  role          = aws_iam_role.delete_user_lambda_role.arn
+  role          = module.iam.delete_user_lambda_role_arn
   runtime       = var.python_runtime
   handler       = "main.lambda_handler"
 
@@ -306,7 +306,7 @@ resource "aws_lambda_function" "delete_user" {
 resource "aws_lambda_function" "get_rental_invoices" {
   description   = "This function retrieves all rental invoices for a given user."
   function_name = "get_rental_invoices"
-  role          = aws_iam_role.get_rental_invoices_lambda_role.arn
+  role          = module.iam.get_rental_invoices_lambda_role_arn
   runtime       = var.python_runtime
   handler       = "main.lambda_handler"
 
@@ -339,7 +339,7 @@ resource "aws_lambda_function" "get_rental_invoices" {
 resource "aws_lambda_function" "get_rental_invoice" {
   description   = "This function retrieves all details for a given rental invoice ID."
   function_name = "get_rental_invoice"
-  role          = aws_iam_role.get_rental_invoice_lambda_role.arn
+  role          = module.iam.get_rental_invoice_lambda_role_arn
   runtime       = var.python_runtime
   handler       = "main.lambda_handler"
 
@@ -372,7 +372,7 @@ resource "aws_lambda_function" "get_rental_invoice" {
 resource "aws_lambda_function" "get_user_profile" {
   description   = "This function retrieves the profile information for the authenticated user."
   function_name = "get_user_profile"
-  role          = aws_iam_role.get_user_profile_lambda_role.arn
+  role          = module.iam.get_user_profile_lambda_role_arn
   runtime       = var.python_runtime
   handler       = "main.lambda_handler"
 

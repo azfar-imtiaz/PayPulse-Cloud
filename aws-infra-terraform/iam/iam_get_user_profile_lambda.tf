@@ -22,7 +22,7 @@ resource "aws_iam_policy" "get_user_profile_lambda_policy" {
         Action = [
           "dynamodb:GetItem"
         ],
-        Resource = aws_dynamodb_table.users.arn
+        Resource = var.users_table_arn
       }
     ]
   })

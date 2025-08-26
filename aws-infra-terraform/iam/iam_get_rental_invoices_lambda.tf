@@ -22,7 +22,7 @@ resource "aws_iam_policy" "get_rental_invoices_lambda_policy" {
         Action = [
           "dynamodb:Query"
         ],
-        Resource = aws_dynamodb_table.rental_invoices.arn
+        Resource = var.rental_invoices_table_arn
       }
     ]
   })
