@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.secretsmanager_utils import store_oauth_tokens
-from utils.oauth_utils import validate_oauth_tokens
+from utils.oauth_utils import validate_oauth_tokens, get_google_user_info, validate_google_account_consistency
 from utils.jwt_utils import get_user_id_from_token
 from utils.exceptions import (
     JWTDecodingError, 
@@ -52,14 +52,30 @@ def lambda_handler(event, context):
         # Validate OAuth tokens (basic validation)
         validate_oauth_tokens(access_token, refresh_token, scope)
         
-        # Store tokens in Secrets Manager
+        # Get Google user information from the access token
+        google_user_info = get_google_user_info(access_token)
+        logging.info(f"Retrieved Google user info for: {google_user_info['google_email']}")
+        
+        # Validate Google account consistency (check for account switching)
+        consistency_check = validate_google_account_consistency(
+            user_id=user_id,
+            new_google_user_id=google_user_info['google_user_id'],
+            new_google_email=google_user_info['google_email'],
+            region=REGION
+        )
+        
+        if consistency_check['is_account_switch']:
+            logging.warning(f"User {user_id} switching Google accounts: {consistency_check['message']}")
+        
+        # Store tokens in Secrets Manager with Google user info
         store_oauth_tokens(
             user_id=user_id,
             access_token=access_token,
             refresh_token=refresh_token,
             expires_in=expires_in,
             scope=scope,
-            region=REGION
+            region=REGION,
+            google_user_info=google_user_info
         )
         
         logging.info(f"Successfully stored OAuth tokens for user {user_id}")
@@ -68,7 +84,10 @@ def lambda_handler(event, context):
             message="Gmail OAuth tokens stored successfully!",
             data={
                 "user_id": user_id,
-                "scope": scope
+                "google_email": google_user_info['google_email'],
+                "scope": scope,
+                "account_switch": consistency_check['is_account_switch'],
+                "message": consistency_check['message']
             },
             status_code=201
         )

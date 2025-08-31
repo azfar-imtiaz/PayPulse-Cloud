@@ -61,7 +61,7 @@ def delete_email_credentials(secrets_manager, user_id: str):
         raise SecretsManagerError(f"Error deleting secret for {user_id}") from e
 
 
-def store_oauth_tokens(user_id: str, access_token: str, refresh_token: str, expires_in: int, scope: str, region: str):
+def store_oauth_tokens(user_id: str, access_token: str, refresh_token: str, expires_in: int, scope: str, region: str, google_user_info: Dict[str, str] = None):
     """
     Stores OAuth tokens for a user in Secrets Manager.
     
@@ -72,6 +72,7 @@ def store_oauth_tokens(user_id: str, access_token: str, refresh_token: str, expi
         expires_in: Token expiration in seconds
         scope: OAuth scope granted
         region: AWS region
+        google_user_info: Google user information (optional)
         
     Raises:
         SecretsManagerError: If storage fails
@@ -80,8 +81,8 @@ def store_oauth_tokens(user_id: str, access_token: str, refresh_token: str, expi
     
     secret_name = f"gmail/user/{user_id}"
     
-    # Prepare OAuth data
-    oauth_data = prepare_oauth_secret_data(access_token, refresh_token, expires_in, scope)
+    # Prepare OAuth data with Google user info
+    oauth_data = prepare_oauth_secret_data(access_token, refresh_token, expires_in, scope, google_user_info)
     
     # Create a Secrets Manager client
     session = boto3.session.Session()
@@ -175,16 +176,24 @@ def update_oauth_tokens(user_id: str, access_token: str, refresh_token: str, exp
     
     secret_name = f"gmail/user/{user_id}"
     
-    # Get existing OAuth data to preserve scope and other metadata
+    # Get existing OAuth data to preserve scope and Google user info
     try:
         existing_data = get_oauth_tokens(user_id, region)
         scope = existing_data.get('scope', 'https://www.googleapis.com/auth/gmail.readonly')
+        # Preserve Google user information during token refresh
+        google_user_info = {
+            'google_user_id': existing_data.get('google_user_id', ''),
+            'google_email': existing_data.get('google_email', ''),
+            'google_name': existing_data.get('google_name', ''),
+            'google_verified_email': existing_data.get('google_verified_email', False)
+        }
     except SecretsManagerError:
-        # If we can't get existing data, use default scope
+        # If we can't get existing data, use defaults
         scope = 'https://www.googleapis.com/auth/gmail.readonly'
+        google_user_info = None
     
     # Prepare updated OAuth data
-    oauth_data = prepare_oauth_secret_data(access_token, refresh_token, expires_in, scope)
+    oauth_data = prepare_oauth_secret_data(access_token, refresh_token, expires_in, scope, google_user_info)
     
     # Create a Secrets Manager client
     session = boto3.session.Session()
