@@ -44,3 +44,8 @@ variable "jwt_secret_arn" {
   type        = string
   description = "The ARN of the JWT secret"
 }
+
+variable "google_oauth_credentials_secret_arn" {
+  type        = string
+  description = "The ARN of the Google OAuth credentials secret"
+}

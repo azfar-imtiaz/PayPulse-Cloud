@@ -59,6 +59,11 @@ variable "lambda_get_user_profile" {
   description = "The lambda function retrieves the profile information for the authenticated user"
 }
 
+variable "lambda_gmail_store_tokens" {
+  type        = string
+  description = "The lambda function stores OAuth tokens received from iOS app"
+}
+
 # Table names
 variable "invoices_table" {
   type        = string
@@ -114,6 +119,12 @@ variable "jwt_secret_version_secret_string" {
   sensitive   = true
 }
 
+variable "google_oauth_client_id" {
+  type        = string
+  description = "Google OAuth client ID for Gmail API access"
+  sensitive   = true
+}
+
 variable "sns_topic_arn" {
   type        = string
   description = "The ARN of the SNS topic for notifications"
@@ -153,4 +164,9 @@ variable "get_rental_invoice_lambda_role_arn" {
 variable "get_user_profile_lambda_role_arn" {
   type        = string
   description = "The ARN of the get user profile lambda role"
+}
+
+variable "gmail_store_tokens_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the gmail store tokens lambda role"
 }

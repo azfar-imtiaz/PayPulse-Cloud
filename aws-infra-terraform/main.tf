@@ -33,6 +33,7 @@ module "iam" {
   users_table_arn               = aws_dynamodb_table.users.arn
   rental_invoices_table_arn     = aws_dynamodb_table.rental_invoices.arn
   jwt_secret_arn                = data.aws_secretsmanager_secret.jwt_secret.arn
+  google_oauth_credentials_secret_arn = aws_secretsmanager_secret.google_oauth_credentials.arn
 }
 
 # Lambda module
@@ -52,6 +53,7 @@ module "lambdas" {
   lambda_get_rental_invoices   = var.lambda_get_rental_invoices
   lambda_get_rental_invoice    = var.lambda_get_rental_invoice
   lambda_get_user_profile      = var.lambda_get_user_profile
+  lambda_gmail_store_tokens    = var.lambda_gmail_store_tokens
   invoices_table               = var.invoices_table
   rental_invoice_email         = var.rental_invoice_email
   rental_invoice_email_subject = var.rental_invoice_email_subject
@@ -64,6 +66,7 @@ module "lambdas" {
   rental_invoices_bucket_arn              = aws_s3_bucket.rental_invoices.arn
   email_access_credentials_secret_name    = aws_secretsmanager_secret.email_access_credentials.name
   jwt_secret_version_secret_string        = data.aws_secretsmanager_secret_version.jwt_secret_version.secret_string
+  google_oauth_client_id                  = var.google_oauth_client_id
   sns_topic_arn                          = aws_sns_topic.new_invoice_notification.arn
   daily_lambda_trigger_arn               = aws_cloudwatch_event_rule.daily_lambda_trigger.arn
   
@@ -74,4 +77,5 @@ module "lambdas" {
   get_rental_invoices_lambda_role_arn    = module.iam.get_rental_invoices_lambda_role_arn
   get_rental_invoice_lambda_role_arn     = module.iam.get_rental_invoice_lambda_role_arn
   get_user_profile_lambda_role_arn       = module.iam.get_user_profile_lambda_role_arn
+  gmail_store_tokens_lambda_role_arn     = module.iam.gmail_store_tokens_lambda_role_arn
 }

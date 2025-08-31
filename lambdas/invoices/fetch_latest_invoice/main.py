@@ -1,73 +1,20 @@
 import os
 import json
-import email
-from email.message import Message
-from email.utils import parsedate_to_datetime
-
 import boto3
-import imaplib
 import logging
 from datetime import datetime
-from typing import Union
 
 from utils.dynamodb_utils import invoice_exists_in_dynamodb
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
-from utils.secretsmanager_utils import get_email_credentials
+from utils.secretsmanager_utils import get_oauth_tokens
 from utils.s3_utils import download_and_upload_attachment
 from utils.jwt_utils import get_user_id_from_token
-from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError
+from utils.gmail_api_utils import create_gmail_service, get_latest_email_by_date
+from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, GmailAPIError, OAuthValidationError, SecretsManagerError
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 JWT_SECRET = os.environ['JWT_SECRET']
-
-
-def fetch_latest_invoice_email(user_email: str, password: str, imap_url: str, current_month: int, current_year: int) -> Union[None, Message]:
-    
-    # connect to Gmail using SSL
-    my_mail = imaplib.IMAP4_SSL(imap_url)
-    # log in using credentials loaded from YAML file
-    my_mail.login(user_email, password)
-
-    # select the Inbox to fetch messages from
-    my_mail.select('Inbox')
-
-    email_sender = os.environ['EMAIL_SENDER']
-    email_subject = os.environ['EMAIL_SUBJECT']
-
-    current_date = datetime(current_year, current_month, 1)
-    formatted_date = current_date.strftime("%d-%b-%Y")
-
-    search_query = f'FROM "{email_sender}" SUBJECT "{email_subject}" SINCE "{formatted_date}"'
-    print(f"This is the search query: {search_query}")
-    # perform search in mailbox using query from above
-    status, data = my_mail.search(None, search_query)
-
-    if status != "OK":
-        print("Error searching for emails")
-        return None
-
-    email_ids = data[0].split()
-    if not email_ids:
-        return None
-
-    # fetch the latest email
-    latest_email_id = email_ids[-1]
-    status, data = my_mail.fetch(latest_email_id, "(RFC822)")
-    raw_email = data[0][1]
-    msg = email.message_from_bytes(raw_email)
-
-    # check email date
-    email_date_str = msg["Date"]
-    email_date = parsedate_to_datetime(email_date_str)
-
-    # an email with the same month and year as current month and year has been found. This means we have a new invoice
-    if email_date.year == current_year and email_date.month == current_month:
-        print(f"Found email from {email_sender} with subject {email_subject} from {current_month}/{current_year}")
-        return msg
-    else:
-        print(f"No email found from {email_sender} with subject {email_subject} from {current_month}/{current_year}")
-        return None
 
 
 def lambda_handler(event, context):
@@ -81,14 +28,24 @@ def lambda_handler(event, context):
         current_month = current_date.month
 
         if not invoice_exists_in_dynamodb(invoices_table, user_id, current_month, current_year):
-            # get credentials
+            # Get OAuth tokens from Secrets Manager
             logging.info(f"No invoice found for {current_month}/{current_year}")
-            my_creds = get_email_credentials(user_id, region=os.environ['REGION'])
-            user_email, password, imap_url = my_creds['GMAIL_USER'], my_creds['GMAIL_PASSWORD'], my_creds[
-                "GMAIL_IMAP_URL"]
-            logging.info("Retrieved credentials")
-
-            invoice_email = fetch_latest_invoice_email(user_email, password, imap_url, current_month, current_year)
+            oauth_data = get_oauth_tokens(user_id, region=os.environ['REGION'])
+            access_token = oauth_data['access_token']
+            refresh_token = oauth_data['refresh_token']
+            
+            # Get Google OAuth client ID
+            client_id = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
+            logging.info("Retrieved OAuth tokens")
+            
+            # Create Gmail API service with automatic token refresh
+            gmail_service = create_gmail_service(user_id, access_token, refresh_token, client_id, os.environ['REGION'])
+            
+            # Get latest invoice email using Gmail API
+            sender = os.environ['EMAIL_SENDER']
+            subject = os.environ['EMAIL_SUBJECT']
+            
+            invoice_email = get_latest_email_by_date(gmail_service, sender, subject, current_month, current_year)
             if not invoice_email:
                 logging.info(f"Invoice for {current_month}/{current_year} not found in inbox!")
                 return success_response(
@@ -113,6 +70,15 @@ def lambda_handler(event, context):
             return success_response(
                 message=f"Invoice for {current_month}/{current_year} has already been processed."
             )
+
+    except GmailAPIError as e:
+        return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Gmail API error", 502, e)
+        
+    except OAuthValidationError as e:
+        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "OAuth token error", 401, e)
+        
+    except SecretsManagerError as e:
+        return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Error retrieving OAuth tokens", 502, e)
 
     except InvalidCredentialsError as e:
         return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)

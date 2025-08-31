@@ -39,3 +39,8 @@ output "get_user_profile_lambda_role_arn" {
   description = "ARN of the get user profile lambda role"
   value       = aws_iam_role.get_user_profile_lambda_role.arn
 }
+
+output "gmail_store_tokens_lambda_role_arn" {
+  description = "ARN of the Gmail store tokens lambda role"
+  value       = aws_iam_role.gmail_store_tokens_lambda_role.arn
+}

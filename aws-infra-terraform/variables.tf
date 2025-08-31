@@ -120,6 +120,12 @@ variable "gmail_secret_credentials" {
   sensitive   = true
 }
 
+variable "google_oauth_client_id" {
+  description = "Google OAuth client ID for Gmail API access."
+  type        = string
+  sensitive   = true
+}
+
 # EventBridge
 
 variable "daily_lambda_trigger" {
@@ -200,6 +206,12 @@ variable "lambda_get_user_profile" {
   type        = string
   description = "The lambda function retrieves the profile information for the authenticated user"
   default     = "get_user_profile"
+}
+
+variable "lambda_gmail_store_tokens" {
+  type        = string
+  description = "The lambda function stores OAuth tokens received from iOS app"
+  default     = "gmail_store_tokens"
 }
 
 variable "rental_invoice_email" {

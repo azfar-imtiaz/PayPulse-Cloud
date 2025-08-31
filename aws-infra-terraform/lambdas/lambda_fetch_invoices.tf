@@ -15,12 +15,13 @@ resource "aws_lambda_function" "fetch_invoices" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE      = var.invoices_table
-      EMAIL_SENDER        = var.rental_invoice_email
-      EMAIL_SUBJECT       = var.rental_invoice_email_subject
-      REGION              = var.aws_region
-      S3_BUCKET           = var.invoices_bucket_name
-      JWT_SECRET          = var.jwt_secret_version_secret_string
+      DYNAMODB_TABLE        = var.invoices_table
+      EMAIL_SENDER          = var.rental_invoice_email
+      EMAIL_SUBJECT         = var.rental_invoice_email_subject
+      REGION                = var.aws_region
+      S3_BUCKET             = var.invoices_bucket_name
+      JWT_SECRET            = var.jwt_secret_version_secret_string
+      GOOGLE_OAUTH_CLIENT_ID = var.google_oauth_client_id
     }
   }
 

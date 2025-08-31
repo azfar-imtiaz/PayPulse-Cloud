@@ -99,6 +99,16 @@ output "get_user_profile_invoke_arn" {
   value       = aws_lambda_function.get_user_profile.invoke_arn
 }
 
+output "gmail_store_tokens_function_name" {
+  description = "Name of the Gmail store tokens lambda function"
+  value       = aws_lambda_function.gmail_store_tokens.function_name
+}
+
+output "gmail_store_tokens_invoke_arn" {
+  description = "Invoke ARN of the Gmail store tokens lambda function"
+  value       = aws_lambda_function.gmail_store_tokens.invoke_arn
+}
+
 # Lambda layers outputs
 output "utils_layer_arn" {
   description = "ARN of the utils lambda layer"

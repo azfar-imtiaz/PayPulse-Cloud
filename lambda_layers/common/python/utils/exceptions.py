@@ -33,3 +33,9 @@ class SecretsManagerError(Exception):
 
 class InvoiceParseError(Exception):
     pass
+
+class OAuthValidationError(Exception):
+    pass
+
+class GmailAPIError(Exception):
+    pass
