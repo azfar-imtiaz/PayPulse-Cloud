@@ -17,10 +17,8 @@ resource "aws_lambda_function" "gmail_store_tokens" {
 
   environment {
     variables = {
-      JWT_SECRET            = var.jwt_secret_version_secret_string
-      REGION                = var.aws_region
-      GOOGLE_WEB_CLIENT_ID  = var.google_oauth_client_id
-      GOOGLE_WEB_CLIENT_SECRET = var.google_oauth_client_secret
+      JWT_SECRET = var.jwt_secret_version_secret_string
+      REGION     = var.aws_region
     }
   }
 

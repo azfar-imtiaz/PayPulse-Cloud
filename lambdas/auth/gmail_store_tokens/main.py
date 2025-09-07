@@ -1,8 +1,6 @@
 import os
 import json
-import logging
-from urllib.request import Request, urlopen
-from urllib.parse import urlencode, parse_qs
+from urllib.parse import parse_qs
 from urllib.error import URLError, HTTPError
 
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
@@ -20,18 +18,17 @@ from utils.exceptions import (
 
 JWT_SECRET = os.environ['JWT_SECRET']
 REGION = os.environ['REGION']
-GOOGLE_WEB_CLIENT_ID = os.environ["GOOGLE_WEB_CLIENT_ID"]
-GOOGLE_WEB_CLIENT_SECRET = os.environ["GOOGLE_WEB_CLIENT_SECRET"]
-TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 def lambda_handler(event, context):
     """
-    Receives auth code and email from iOS app, uses those to get access token and refresh token
-    from Google, and store those in SecretsManager
+    Receives OAuth tokens directly from iOS app and stores them in SecretsManager
 
     Expected request body:
     {
-        'auth_code': 'string',
+        'access_token': 'string',
+        'refresh_token': 'string',
+        'expires_in': 'number',
+        'scope': ['string1', 'string2', ...],  // Array of scope strings
         'email': 'string'
     }
     """
@@ -60,54 +57,37 @@ def lambda_handler(event, context):
             body = base64.b64decode(body).decode('utf-8')
             print(f"Decoded body: {repr(body)}")
 
-        # Parse URL-encoded form data instead of JSON
+        # Parse request data (support both JSON and form data)
         content_type = headers.get('content-type', '')
         if 'application/x-www-form-urlencoded' in content_type:
             # Parse form data
             parsed_data = parse_qs(body)
             # parse_qs returns lists, so get first value
-            auth_code = parsed_data.get('authCode', [None])[0]
+            access_token = parsed_data.get('access_token', [None])[0]
+            refresh_token = parsed_data.get('refresh_token', [None])[0]
+            expires_in = int(parsed_data.get('expires_in', [3600])[0])
+            # For form data, scope might be sent as comma-separated string
+            scope_raw = parsed_data.get('scope', [''])[0]
+            scope = scope_raw if scope_raw else ""
             email = parsed_data.get('email', [None])[0]
-            print(f"Parsed form data - authCode: {auth_code}, email: {email}")
+            print(f"Parsed form data - access_token: {access_token[:20]}..., refresh_token: {refresh_token[:20] if refresh_token else None}..., email: {email}")
         else:
-            # Fall back to JSON parsing
+            # Parse JSON data
             request_body = json.loads(body)
             print(f"Parsed request body: {request_body}")
-            auth_code = request_body["auth_code"]
-            email = request_body["email"]
-
-        payload = {
-            "code": auth_code,
-            "client_id": GOOGLE_WEB_CLIENT_ID,
-            "client_secret": GOOGLE_WEB_CLIENT_SECRET,
-            "redirect_uri": "postmessage",
-            "grant_type": "authorization_code"
-        }
+            access_token = request_body["access_token"]
+            refresh_token = request_body.get("refresh_token")
+            expires_in = request_body.get("expires_in", 3600)
+            # Handle scope as list of strings
+            scope_list = request_body.get("scope", [])
+            if isinstance(scope_list, list):
+                scope = " ".join(scope_list)  # Join list into space-separated string
+            else:
+                scope = str(scope_list)  # Handle case where it's already a string
+            email = request_body.get("email")
         
-        print(f"Using client_id: {GOOGLE_WEB_CLIENT_ID}")
-        print(f"Using client_secret: {GOOGLE_WEB_CLIENT_SECRET[:20]}...")  # Show first 20 chars
-        print(f"Auth code length: {len(auth_code)}")
-        print(f"Payload for Google: {payload}")
-        
-        # Prepare POST request
-        data = urlencode(payload).encode('utf-8')
-        request = Request(
-            TOKEN_URL,
-            data=data,
-            headers={'Content-Type': 'application/x-www-form-urlencoded'}
-        )
-        
-        with urlopen(request, timeout=10) as response:
-            if response.status != 200:
-                error_text = response.read().decode('utf-8')
-                raise OAuthValidationError(f"Failed to get OAuth tokens from Google: {response.status} -> {error_text}")
-            token_data = json.loads(response.read().decode('utf-8'))
-
-        # Extract OAuth tokens
-        access_token = token_data['access_token']
-        refresh_token = token_data.get('refresh_token')
-        expires_in = token_data.get('expires_in', 3600)  # Default 1 hour
-        scope = token_data.get('scope', '')
+        print(f"Received tokens - access_token length: {len(access_token)}, refresh_token: {'present' if refresh_token else 'missing'}")
+        print(f"Token expires_in: {expires_in}, scope: {scope}")
         
         # Validate OAuth tokens (basic validation)
         validate_oauth_tokens(access_token, scope)
