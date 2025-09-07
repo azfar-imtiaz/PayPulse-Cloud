@@ -1,7 +1,7 @@
 import json
 import boto3
 import logging
-from typing import Dict
+from typing import Dict, Optional
 from botocore.exceptions import ClientError
 
 from utils.exceptions import SecretsManagerError
@@ -61,7 +61,7 @@ def delete_email_credentials(secrets_manager, user_id: str):
         raise SecretsManagerError(f"Error deleting secret for {user_id}") from e
 
 
-def store_oauth_tokens(user_id: str, access_token: str, refresh_token: str, expires_in: int, scope: str, region: str, google_user_info: Dict[str, str] = None):
+def store_oauth_tokens(user_id: str, access_token: str, refresh_token: Optional[str], expires_in: int, scope: str, region: str, google_user_info: Dict[str, str] = None):
     """
     Stores OAuth tokens for a user in Secrets Manager.
     

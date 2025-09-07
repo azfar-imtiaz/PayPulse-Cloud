@@ -1,14 +1,18 @@
 import logging
-from typing import Dict, Any
+import json
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
+from typing import Dict, Any, Optional
+
 from utils.exceptions import OAuthValidationError
 
-def validate_oauth_tokens(access_token: str, refresh_token: str, scope: str = "") -> None:
+def validate_oauth_tokens(access_token: str, scope: str = "") -> None:
     """
     Validates OAuth tokens received from iOS app.
     
     Args:
         access_token: The OAuth access token
-        refresh_token: The OAuth refresh token 
+        # refresh_token: The OAuth refresh token
         scope: The granted scope (optional)
         
     Raises:
@@ -18,8 +22,8 @@ def validate_oauth_tokens(access_token: str, refresh_token: str, scope: str = ""
     if not access_token or not isinstance(access_token, str):
         raise OAuthValidationError("Invalid or missing access_token")
         
-    if not refresh_token or not isinstance(refresh_token, str):
-        raise OAuthValidationError("Invalid or missing refresh_token")
+    # if not refresh_token or not isinstance(refresh_token, str):
+    #     raise OAuthValidationError("Invalid or missing refresh_token")
         
     # Basic format validation for Google OAuth tokens
     if not access_token.startswith(('ya29.', 'ya29-')):
@@ -31,7 +35,8 @@ def validate_oauth_tokens(access_token: str, refresh_token: str, scope: str = ""
         
     logging.info("OAuth token validation passed")
 
-def prepare_oauth_secret_data(access_token: str, refresh_token: str, expires_in: int, scope: str, google_user_info: Dict[str, str] = None) -> Dict[str, Any]:
+
+def prepare_oauth_secret_data(access_token: str, refresh_token: Optional[str], expires_in: int, scope: str, google_user_info: Dict[str, str] = None) -> Dict[str, Any]:
     """
     Prepares OAuth token data for storage in Secrets Manager.
     
@@ -54,13 +59,16 @@ def prepare_oauth_secret_data(access_token: str, refresh_token: str, expires_in:
     
     oauth_data = {
         "access_token": access_token,
-        "refresh_token": refresh_token, 
+        # "refresh_token": refresh_token,
         "expires_at": expires_at.isoformat(),
         "expires_in": expires_in,
         "scope": scope,
         "token_type": "Bearer",
         "created_at": datetime.utcnow().isoformat()
     }
+
+    if refresh_token:
+        oauth_data.update({"refresh_token": refresh_token})
     
     # Add Google user information if provided
     if google_user_info:
@@ -85,6 +93,7 @@ def is_token_expired(oauth_data: Dict[str, Any]) -> bool:
     expires_at = datetime.fromisoformat(oauth_data['expires_at'])
     return datetime.utcnow() >= expires_at
 
+
 def get_google_user_info(access_token: str) -> Dict[str, str]:
     """
     Gets Google user information from access token.
@@ -99,27 +108,25 @@ def get_google_user_info(access_token: str) -> Dict[str, str]:
         OAuthValidationError: If user info retrieval fails
     """
     try:
-        import requests
-        
         # Call Google's userinfo endpoint
-        response = requests.get(
-            'https://www.googleapis.com/oauth2/v1/userinfo',
-            headers={'Authorization': f'Bearer {access_token}'},
-            timeout=10
+        request = Request(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'}
         )
         
-        if response.status_code == 200:
-            user_info = response.json()
-            return {
-                'google_user_id': user_info.get('id', ''),
-                'google_email': user_info.get('email', ''),
-                'google_name': user_info.get('name', ''),
-                'google_verified_email': user_info.get('verified_email', False)
-            }
-        else:
-            raise OAuthValidationError(f"Failed to get Google user info: HTTP {response.status_code}")
+        with urlopen(request, timeout=10) as response:
+            if response.status == 200:
+                user_info = json.loads(response.read().decode('utf-8'))
+                return {
+                    'google_user_id': user_info.get('id', ''),
+                    'google_email': user_info.get('email', ''),
+                    'google_name': user_info.get('name', ''),
+                    'google_verified_email': user_info.get('verified_email', False)
+                }
+            else:
+                raise OAuthValidationError(f"Failed to get Google user info: HTTP {response.status}")
             
-    except requests.RequestException as e:
+    except (URLError, HTTPError) as e:
         raise OAuthValidationError(f"Network error getting Google user info: {str(e)}") from e
     except Exception as e:
         raise OAuthValidationError(f"Unexpected error getting Google user info: {str(e)}") from e

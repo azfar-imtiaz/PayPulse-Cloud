@@ -17,13 +17,24 @@ data "aws_secretsmanager_secret_version" "jwt_secret_version" {
   secret_id = data.aws_secretsmanager_secret.jwt_secret.id
 }
 
-# Google OAuth credentials for Gmail API access
-resource "aws_secretsmanager_secret" "google_oauth_credentials" {
-  name        = "Google-OAuth-Credentials"
-  description = "Google OAuth client credentials for Gmail API access via iOS app."
+# Google OAuth client ID for Gmail API access
+resource "aws_secretsmanager_secret" "google_oauth_client_id" {
+  name        = "Google-OAuth-Client-ID"
+  description = "Google OAuth client ID for Gmail API access via iOS app."
 }
 
-resource "aws_secretsmanager_secret_version" "google_oauth_credentials_value" {
-  secret_id     = aws_secretsmanager_secret.google_oauth_credentials.id
+resource "aws_secretsmanager_secret_version" "google_oauth_client_id_value" {
+  secret_id     = aws_secretsmanager_secret.google_oauth_client_id.id
   secret_string = var.google_oauth_client_id
+}
+
+# Google OAuth client secret for Gmail API access
+resource "aws_secretsmanager_secret" "google_oauth_client_secret" {
+  name        = "Google-OAuth-Client-Secret"
+  description = "Google OAuth client secret for Gmail API access via iOS app."
+}
+
+resource "aws_secretsmanager_secret_version" "google_oauth_client_secret_value" {
+  secret_id     = aws_secretsmanager_secret.google_oauth_client_secret.id
+  secret_string = var.google_oauth_client_secret
 }
