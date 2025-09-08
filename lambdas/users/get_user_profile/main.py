@@ -10,10 +10,33 @@ from utils.exceptions import InvalidCredentialsError, InvalidTokenError, TokenEx
     UserNotFoundError, DatabaseError
 
 dynamodb = boto3.resource('dynamodb')
+secretsmanager = boto3.client('secretsmanager')
 USERS_TABLE = os.environ['USERS_TABLE']
 JWT_SECRET = os.environ['JWT_SECRET']
+REGION = os.environ['REGION']
 
 users_table = dynamodb.Table(USERS_TABLE)
+
+
+def check_gmail_connection(user_id: str) -> bool:
+    """
+    Check if user has Gmail OAuth tokens stored in Secrets Manager.
+    
+    Returns:
+        bool: True if Gmail account is connected, False otherwise
+    """
+    secret_name = f"gmail/user/{user_id}"
+    
+    try:
+        secretsmanager.get_secret_value(SecretId=secret_name)
+        logging.info(f"Gmail secret found for user {user_id}")
+        return True
+    except secretsmanager.exceptions.ResourceNotFoundException:
+        logging.info(f"No Gmail secret found for user {user_id}")
+        return False
+    except Exception as e:
+        logging.error(f"Error checking Gmail secret for user {user_id}: {e}")
+        return False
 
 
 def lambda_handler(event, context):
@@ -25,12 +48,17 @@ def lambda_handler(event, context):
         user = fetch_user_by_id(users_table, user_id=user_id)
         logging.info(f"User '{user_id}' retrieved successfully from DB!")
 
+        # Check if Gmail account is connected
+        gmail_connected = check_gmail_connection(user_id)
+        logging.info(f"Gmail connection status for user {user_id}: {gmail_connected}")
+
         return success_response(
             message="User profile retrieved successfully",
             data={
                 "name": user['Name'],
                 "email": user['Email'],
-                "created_on": user['CreatedOn']
+                "created_on": user['CreatedOn'],
+                "gmail_account_connected": gmail_connected
             }
         )
 

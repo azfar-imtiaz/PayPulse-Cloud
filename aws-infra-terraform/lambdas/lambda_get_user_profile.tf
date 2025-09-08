@@ -19,6 +19,7 @@ resource "aws_lambda_function" "get_user_profile" {
     variables = {
       USERS_TABLE = var.users_table_name
       JWT_SECRET  = var.jwt_secret_version_secret_string
+      REGION      = var.aws_region
     }
   }
 

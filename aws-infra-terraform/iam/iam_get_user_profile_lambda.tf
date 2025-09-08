@@ -23,6 +23,13 @@ resource "aws_iam_policy" "get_user_profile_lambda_policy" {
           "dynamodb:GetItem"
         ],
         Resource = var.users_table_arn
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ],
+        Resource = "arn:aws:secretsmanager:*:*:secret:gmail/user/*"
       }
     ]
   })
