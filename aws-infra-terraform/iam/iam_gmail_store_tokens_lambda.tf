@@ -29,8 +29,7 @@ resource "aws_iam_policy" "gmail_store_tokens_lambda_policy" {
         Effect = "Allow",
         Resource = [
           "arn:aws:secretsmanager:*:*:secret:gmail/user/*",
-          var.google_oauth_client_id_secret_arn,
-          var.google_oauth_client_secret_secret_arn
+          var.google_oauth_client_id_secret_arn
         ]
       },
       {

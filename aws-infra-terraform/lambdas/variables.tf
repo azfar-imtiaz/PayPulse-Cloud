@@ -125,11 +125,6 @@ variable "google_oauth_client_id" {
   sensitive   = true
 }
 
-variable "google_oauth_client_secret" {
-  type        = string
-  description = "Google OAuth client secret for Gmail API access"
-  sensitive   = true
-}
 
 variable "sns_topic_arn" {
   type        = string

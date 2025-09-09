@@ -34,7 +34,6 @@ module "iam" {
   rental_invoices_table_arn               = aws_dynamodb_table.rental_invoices.arn
   jwt_secret_arn                          = data.aws_secretsmanager_secret.jwt_secret.arn
   google_oauth_client_id_secret_arn       = aws_secretsmanager_secret.google_oauth_client_id.arn
-  google_oauth_client_secret_secret_arn   = aws_secretsmanager_secret.google_oauth_client_secret.arn
 }
 
 # Lambda module
@@ -68,7 +67,6 @@ module "lambdas" {
   email_access_credentials_secret_name    = aws_secretsmanager_secret.email_access_credentials.name
   jwt_secret_version_secret_string        = data.aws_secretsmanager_secret_version.jwt_secret_version.secret_string
   google_oauth_client_id                  = var.google_oauth_client_id
-  google_oauth_client_secret              = var.google_oauth_client_secret
   sns_topic_arn                          = aws_sns_topic.new_invoice_notification.arn
   daily_lambda_trigger_arn               = aws_cloudwatch_event_rule.daily_lambda_trigger.arn
   

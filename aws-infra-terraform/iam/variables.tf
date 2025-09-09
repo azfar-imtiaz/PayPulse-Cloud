@@ -49,8 +49,3 @@ variable "google_oauth_client_id_secret_arn" {
   type        = string
   description = "The ARN of the Google OAuth client ID secret"
 }
-
-variable "google_oauth_client_secret_secret_arn" {
-  type        = string
-  description = "The ARN of the Google OAuth client secret secret"
-}

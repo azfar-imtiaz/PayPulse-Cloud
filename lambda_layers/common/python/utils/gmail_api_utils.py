@@ -1,11 +1,8 @@
-import json
 import logging
 import email
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 from email.message import Message
 
-from google.auth.credentials import Credentials
 from google.oauth2.credentials import Credentials as OAuth2Credentials
 from googleapiclient.discovery import build
 from google.auth.exceptions import RefreshError
@@ -13,7 +10,7 @@ from google.auth.exceptions import RefreshError
 from utils.exceptions import GmailAPIError, OAuthValidationError
 
 
-def create_gmail_service(user_id: str, access_token: str, refresh_token: str, client_id: str, region: str, client_secret: str = None):
+def create_gmail_service(user_id: str, access_token: str, refresh_token: str, client_id: str, region: str, client_secret: str = None, expires_at: str = None):
     """
     Creates a Gmail API service object using OAuth credentials with automatic token refresh.
     
@@ -23,6 +20,8 @@ def create_gmail_service(user_id: str, access_token: str, refresh_token: str, cl
         refresh_token: OAuth refresh token  
         client_id: Google OAuth client ID
         region: AWS region for Secrets Manager
+        client_secret: OAuth client secret (None for iOS public clients)
+        expires_at: Token expiration timestamp in ISO format
         
     Returns:
         Gmail API service object
@@ -33,22 +32,44 @@ def create_gmail_service(user_id: str, access_token: str, refresh_token: str, cl
     """
     try:
         # Check if token needs refresh
-        from datetime import datetime
+        from datetime import datetime, timedelta
         from utils.secretsmanager_utils import update_oauth_tokens
+        import dateutil.parser
         
-        # Create credentials object
+        # Create credentials object (use empty string for iOS OAuth public clients)
         credentials = OAuth2Credentials(
             token=access_token,
             refresh_token=refresh_token,
             client_id=client_id,
-            client_secret=client_secret,  # Needed for token refresh
+            client_secret=client_secret or "",  # Empty string for iOS OAuth public clients
             token_uri="https://oauth2.googleapis.com/token",
             scopes=['https://www.googleapis.com/auth/gmail.readonly']
         )
         
-        # Check if token is expired and refresh if needed
-        if credentials.expired:
-            logging.info("Access token expired, refreshing...")
+        # Check if token is expired or will expire soon, and refresh proactively
+        
+        should_refresh = False
+        
+        # Check expiration using the stored expires_at timestamp
+        if expires_at:
+            try:
+                expiry_time = dateutil.parser.isoparse(expires_at).replace(tzinfo=None)
+                current_time = datetime.utcnow()
+                time_until_expiry = expiry_time - current_time
+                
+                # Refresh if expired or expiring within 5 minutes
+                should_refresh = time_until_expiry < timedelta(minutes=5)
+                logging.info(f"Token expires in {time_until_expiry.total_seconds():.0f} seconds")
+                
+            except Exception as e:
+                logging.warning(f"Could not parse expires_at '{expires_at}': {e}. Checking credentials.expired")
+                should_refresh = credentials.expired
+        else:
+            # Fallback to credentials.expired if no expires_at provided
+            should_refresh = credentials.expired
+            
+        if should_refresh:
+            logging.info("Access token expired or expiring soon, refreshing...")
             try:
                 # Import here to avoid circular imports
                 import google.auth.transport.requests
@@ -205,41 +226,3 @@ def get_latest_email_by_date(service, sender: str, subject: str, target_month: i
     except Exception as e:
         raise GmailAPIError(f"Failed to get latest email by date: {str(e)}") from e
 
-
-def refresh_access_token(refresh_token: str, client_id: str) -> Dict[str, Any]:
-    """
-    Refreshes an expired access token using the refresh token.
-    
-    Args:
-        refresh_token: OAuth refresh token
-        client_id: Google OAuth client ID
-        
-    Returns:
-        Dictionary containing new token information
-        
-    Raises:
-        OAuthValidationError: If token refresh fails
-    """
-    try:
-        credentials = OAuth2Credentials(
-            token=None,  # Expired token
-            refresh_token=refresh_token,
-            client_id=client_id,
-            client_secret=None,
-            token_uri="https://oauth2.googleapis.com/token",
-            scopes=['https://www.googleapis.com/auth/gmail.readonly']
-        )
-        
-        # Refresh the token
-        credentials.refresh(None)  # No request needed for refresh
-        
-        return {
-            "access_token": credentials.token,
-            "refresh_token": credentials.refresh_token or refresh_token,  # May not return new refresh token
-            "expires_at": credentials.expiry.isoformat() if credentials.expiry else None
-        }
-        
-    except RefreshError as e:
-        raise OAuthValidationError(f"Token refresh failed: {str(e)}") from e
-    except Exception as e:
-        raise OAuthValidationError(f"Unexpected error during token refresh: {str(e)}") from e

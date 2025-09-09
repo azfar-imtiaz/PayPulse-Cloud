@@ -126,11 +126,6 @@ variable "google_oauth_client_id" {
   sensitive   = true
 }
 
-variable "google_oauth_client_secret" {
-  description = "Google OAuth client secret for Gmail API access."
-  type        = string
-  sensitive   = true
-}
 
 # EventBridge
 

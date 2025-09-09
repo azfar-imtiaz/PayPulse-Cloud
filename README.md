@@ -284,7 +284,8 @@ PayPulse uses OAuth 2.0 for secure Gmail access instead of traditional app passw
 
 #### iOS App Integration
 - Uses Google Sign-In SDK with iOS client ID: `623709424238-bggrm8506j6fqc845ee862cv9jiqi60a.apps.googleusercontent.com`
-- Implements native iOS OAuth flow for better UX
+- Implements native iOS OAuth flow (public client - no client secret required)
+- Generates OAuth tokens using iOS client credentials
 - Sends OAuth tokens to backend via `/v1/auth/gmail-tokens` endpoint
 
 #### Backend Token Management
@@ -323,8 +324,7 @@ I am using AWS Secrets Manager for sensitive values, including OAuth tokens and 
 | Secret Name | Purpose |
 | ----------- | ------- |
 | gmail/user/{user_id}  | OAuth 2.0 tokens: access_token, refresh_token, expires_at, scope, Google user info |
-| Google-OAuth-Client-ID | Google OAuth client ID for Gmail API access |
-| Google-OAuth-Client-Secret | Google OAuth client secret for token refresh |
+| Google-OAuth-Client-ID | iOS OAuth client ID for Gmail API access (no secret needed for public clients) |
 
 ### Simple Notification Service (SNS)
 

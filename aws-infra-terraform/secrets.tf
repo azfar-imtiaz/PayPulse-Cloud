@@ -27,14 +27,3 @@ resource "aws_secretsmanager_secret_version" "google_oauth_client_id_value" {
   secret_id     = aws_secretsmanager_secret.google_oauth_client_id.id
   secret_string = var.google_oauth_client_id
 }
-
-# Google OAuth client secret for Gmail API access
-resource "aws_secretsmanager_secret" "google_oauth_client_secret" {
-  name        = "Google-OAuth-Client-Secret"
-  description = "Google OAuth client secret for Gmail API access via iOS app."
-}
-
-resource "aws_secretsmanager_secret_version" "google_oauth_client_secret_value" {
-  secret_id     = aws_secretsmanager_secret.google_oauth_client_secret.id
-  secret_string = var.google_oauth_client_secret
-}

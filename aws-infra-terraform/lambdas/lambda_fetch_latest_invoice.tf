@@ -23,7 +23,6 @@ resource "aws_lambda_function" "fetch_latest_invoice" {
       S3_BUCKET             = var.invoices_bucket_name
       JWT_SECRET               = var.jwt_secret_version_secret_string
       GOOGLE_OAUTH_CLIENT_ID   = var.google_oauth_client_id
-      GOOGLE_OAUTH_CLIENT_SECRET = var.google_oauth_client_secret
     }
   }
 
