@@ -30,7 +30,9 @@ def lambda_handler(event, context):
         user_id = create_user_in_dynamodb(dynamodb, email, name, password, users_table_name=USERS_TABLE)
 
         # 2. Create folder for user in S3
-        create_user_folder_in_s3(s3, user_id=user_id, s3_bucket_name=S3_BUCKET)
+        # UPDATE: This is not required anymore as the Gmail secret is now created when
+        # user establishes connection with Gmail
+        # create_user_folder_in_s3(s3, user_id=user_id, s3_bucket_name=S3_BUCKET)
 
         # 3. Generate JWT Token (OAuth tokens will be stored separately via /auth/gmail/store-tokens endpoint)
         token = generate_jwt_token(user_id, email, jwt_secret)

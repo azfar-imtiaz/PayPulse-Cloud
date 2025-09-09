@@ -13,7 +13,7 @@ from google.auth.exceptions import RefreshError
 from utils.exceptions import GmailAPIError, OAuthValidationError
 
 
-def create_gmail_service(user_id: str, access_token: str, refresh_token: str, client_id: str, region: str):
+def create_gmail_service(user_id: str, access_token: str, refresh_token: str, client_id: str, region: str, client_secret: str = None):
     """
     Creates a Gmail API service object using OAuth credentials with automatic token refresh.
     
@@ -41,7 +41,7 @@ def create_gmail_service(user_id: str, access_token: str, refresh_token: str, cl
             token=access_token,
             refresh_token=refresh_token,
             client_id=client_id,
-            client_secret=None,  # Not needed for server-to-server
+            client_secret=client_secret,  # Needed for token refresh
             token_uri="https://oauth2.googleapis.com/token",
             scopes=['https://www.googleapis.com/auth/gmail.readonly']
         )

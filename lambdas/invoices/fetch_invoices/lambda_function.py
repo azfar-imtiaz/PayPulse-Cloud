@@ -49,13 +49,14 @@ def lambda_handler(event, context):
         access_token = oauth_data['access_token']
         refresh_token = oauth_data['refresh_token']
         
-        # Get Google OAuth client ID from environment
+        # Get Google OAuth client credentials from environment
         client_id = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
+        client_secret = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
         
         logging.info("Retrieved OAuth tokens")
         
         # Create Gmail API service with automatic token refresh
-        gmail_service = create_gmail_service(user_id, access_token, refresh_token, client_id, os.environ['REGION'])
+        gmail_service = create_gmail_service(user_id, access_token, refresh_token, client_id, os.environ['REGION'], client_secret)
         
         # Search for emails using Gmail API
         sender = os.environ['EMAIL_SENDER']
