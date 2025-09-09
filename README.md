@@ -1,7 +1,7 @@
 # PayPulse-Cloud
 This repository contains the Cloud backend for the PayPulse app. The backend for this app is developed in AWS and maintained using Terraform.
 
-PayPulse is an iOS app that fetches invoices from a Gmail inbox, parses them, and presents invoice information and statistics. 
+PayPulse is an iOS app that fetches invoices from a Gmail inbox using OAuth 2.0 authentication, parses them, and presents invoice information and statistics. 
 The GitHub link to the PayPulse app can be found [here](https://github.com/azfar-imtiaz/PayPulse).
 
 ## Cloud Architecture Diagram
@@ -48,6 +48,10 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │       ├── delete_user
 │           ├── main.py
 │           ├── requirements.txt
+│   ├── auth
+│       ├── gmail_store_tokens
+│           ├── main.py
+│           ├── requirements.txt
 ├── lambda_layers
 │   ├── common
 │       ├── python
@@ -62,6 +66,8 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │               ├── error_handling.py
 │               ├── responses.py
 │               ├── exceptions.py
+│               ├── oauth_utils.py
+│               ├── gmail_api_utils.py
 │   ├── jwt
 │       ├── python
 │           ├── jwt
@@ -91,7 +97,8 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │   │   ├── iam_delete_user_lambda.tf      # IAM role and policy for delete user lambda
 │   │   ├── iam_get_rental_invoice_lambda.tf     # IAM role and policy for get rental invoice lambda
 │   │   ├── iam_get_rental_invoices_lambda.tf    # IAM role and policy for get rental invoices lambda
-│   │   └── iam_get_user_profile_lambda.tf       # IAM role and policy for get user profile lambda
+│   │   ├── iam_get_user_profile_lambda.tf       # IAM role and policy for get user profile lambda
+│   │   └── iam_gmail_store_tokens_lambda.tf     # IAM role and policy for gmail store tokens lambda
 │   ├── lambdas/                           # Lambda functions module (organized by function)
 │   │   ├── main.tf                        # Lambda module configuration
 │   │   ├── variables.tf                   # Lambda module input variables  
@@ -106,6 +113,7 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │   │   ├── lambda_get_rental_invoices.tf  # Get rental invoices lambda function
 │   │   ├── lambda_get_rental_invoice.tf   # Get rental invoice lambda function
 │   │   ├── lambda_get_user_profile.tf     # Get user profile lambda function
+│   │   ├── lambda_gmail_store_tokens.tf   # Gmail store tokens lambda function
 │   │   └── lambda_layers.tf               # Lambda layers (utils, JWT, bcrypt)
 │   └── terraform.tfstate        	    # Terraform state file (not in repo)
 └── README.md                	            # You're here!
@@ -173,6 +181,7 @@ This bucket is for containing the source code of the following lambda functions:
 - Get user profile
 - Login
 - Signup
+- Store Gmail tokens
 
 The source code of these lambda functions is uploaded as zipped files to this bucket. 
 Everytime there is a change to any of these functions, a new version of their zipped file will be uploaded to this S3 bucket. 
@@ -186,7 +195,8 @@ There are several lambda functions, and some of them are linked, in a way. The e
 |:-------------------------:|:---------------------------:| :-------: |--------------------------------------------------------------------------------------------------------------------------| ------- |
 |           Login           |        `login_user`         | API Gateway | This function allows an existing user to login, and returns an access token                                              | Zip upload to S3 bucket |
 |          Sign up          |        `signup_user`        | API Gateway | This function allows a new user to sign up to PayPulse                                                                   | Zip upload to S3 bucket |
-|       Get user profile    |     `get_user_profile`      | API Gateway | This function retrieves the user profile information (name, email, created date) for the authenticated user             | Zip upload to S3 bucket |
+|       Get user profile    |     `get_user_profile`      | API Gateway | This function retrieves the user profile information (name, email, created date, Gmail connection status) for the authenticated user             | Zip upload to S3 bucket |
+|    Store Gmail tokens     |   `gmail_store_tokens`      | API Gateway | This function stores OAuth 2.0 tokens received from iOS app for Gmail API access                                        | Zip upload to S3 bucket |
 |    Ingest all invoices    |      `fetch_invoices`       | API Gateway | This function fetches all rental invoices from the email inbox                                                           | Zip upload to S3 bucket |
 |   Ingest latest invoice   |   `fetch_latest_invoice`    | EventBridge (every weekday 8:30 AM) | This function fetches the rental invoice for the current month, if available                                             | Zip upload to S3 bucket |
 |       Parse invoice       |       `parse_invoice`       | S3 (rental invoice upload) | This function parses a rental invoice and stores the information in DynamoDB                                             | Docker image pushed to ECR repository |
@@ -195,7 +205,7 @@ There are several lambda functions, and some of them are linked, in a way. The e
 |        Delete user        |        `delete_user`        | API Gateway | This function deletes all data for a given user in PayPulse Cloud                                                        | Zip upload to S3 bucket |
 | Send invoice notification | `send_invoice_notification` | DynamoDB stream | This function sends an email and iOS notification everytime a new rental invoice is parsed                               | Zip upload to S3 bucket |
 
-1. The `fetch_latest_invoice` function is triggered once every weekday in the morning. It looks for the latest rental invoice, by checking to see if there is a rental invoice available for the current month for which there is not already a corresponding record in the DynamoDB table. If it finds such an invoice, it uploads it to a specific path in the rental invoices S3 bucket. 
+1. The `fetch_latest_invoice` function is triggered once every weekday in the morning. It uses OAuth 2.0 tokens stored in AWS Secrets Manager to access the user's Gmail inbox via Gmail API, checking for the latest rental invoice for the current month. If it finds such an invoice and there's no corresponding record in the DynamoDB table, it uploads it to a specific path in the rental invoices S3 bucket. 
 2. This triggers the `parse_invoice` function, which downloads this rental invoice, parses the relevant information from it, and uploads it to the DynamoDB table containing the data of parsed invoices.
 3. This triggers the `send_invoice_notification` function, which sends a notification to an iOS device and my email address, informing that a new invoice is available. This notification contains the total amount due and the due date.
 
@@ -206,9 +216,14 @@ The other lambda functions are deployed as API endpoints, via API Gateway.
 I am using lambda layers for some extended functionalities that are not available out-of-the-box in Python. These are as follows:
 - Bcrypt
 - JWT
-- Common utility functions used across the lambda functions
+- Common utility functions used across the lambda functions (including OAuth utilities, Gmail API utilities, etc.)
 
 I am using Klayers for Bcrypt. For the other two, I have created the lambda layers manually (they can be found under the `lambda_layers` directory). These lambda layers are attached to different lambda functions as per requirement in the lambda function Terraform definition.
+
+The common utilities layer now includes:
+- OAuth 2.0 token validation and management (`oauth_utils.py`)
+- Gmail API service creation and email processing (`gmail_api_utils.py`)
+- Enhanced Secrets Manager operations for OAuth tokens (`secretsmanager_utils.py`)
 
 Everytime there is a change or addition to the common utility functions, I generate a new zip file containing these functions, and then push the change using `terraform apply`.
 
@@ -221,6 +236,7 @@ The following endpoints are deployed in PayPulseAPI via API Gateway, each of the
 |        Login         |      login_user      |
 |       Sign up        |     signup_user      |
 |   Get user profile   |   get_user_profile   |
+|  Store Gmail tokens  |  gmail_store_tokens  |
 |  Fetch all invoices  |    fetch_invoices    |
 | Fetch latest invoice | fetch_latest_invoice |
 |     Get invoices     | get_rental_invoices  |
@@ -235,6 +251,8 @@ The routes are structured like this:
 │       ├── /signup
 │           ├── POST
 │       ├── /login
+│           ├── POST
+│       ├── /gmail-tokens
 │           ├── POST
 │   ├── /invoices
 │       ├── {type}
@@ -251,18 +269,62 @@ The routes are structured like this:
 
 JWT token based authentication has been implemented here. The login call returns an access token, which must be attached to the header of all other API calls (apart from sign-up of course). This allows the lambda function against the API call to retrieve the user ID from the token and perform the operation for that specific user.
 
+## Gmail OAuth 2.0 Integration
+
+PayPulse uses OAuth 2.0 for secure Gmail access instead of traditional app passwords. This provides better security and user experience.
+
+### Authentication Flow
+
+1. **User Authentication**: User logs in to PayPulse using email/password to get JWT token
+2. **Gmail Authorization**: Separate step where user grants Gmail access via Google Sign-In SDK
+3. **Token Storage**: OAuth tokens are securely stored in AWS Secrets Manager
+4. **Invoice Access**: Backend uses stored tokens to access Gmail API for invoice fetching
+
+### OAuth 2.0 Components
+
+#### iOS App Integration
+- Uses Google Sign-In SDK with iOS client ID: `623709424238-bggrm8506j6fqc845ee862cv9jiqi60a.apps.googleusercontent.com`
+- Implements native iOS OAuth flow for better UX
+- Sends OAuth tokens to backend via `/v1/auth/gmail-tokens` endpoint
+
+#### Backend Token Management
+- **Token Storage**: Secure storage in AWS Secrets Manager with pattern `gmail/user/{user_id}`
+- **Automatic Refresh**: Built-in token refresh mechanism using refresh tokens
+- **Google User Validation**: Maps internal user IDs to Google OAuth IDs for consistency
+- **Account Switch Detection**: Warns when users switch between different Google accounts
+
+#### Gmail API Access
+- **Modern API**: Uses Gmail API v1 instead of IMAP for better reliability
+- **Structured Queries**: Advanced search capabilities with sender, subject, and date filters  
+- **Email Processing**: Maintains same PDF attachment processing workflow
+- **Error Handling**: Comprehensive OAuth-specific error handling and recovery
+
+### Security Features
+
+- **Short-lived Access Tokens**: 1-hour expiration minimizes exposure
+- **Long-lived Refresh Tokens**: Enables seamless re-authorization without user intervention
+- **Encrypted Storage**: All tokens encrypted at rest in AWS Secrets Manager
+- **Automatic Rotation**: Tokens are automatically refreshed when expired
+- **Account Consistency**: Validates user isn't accidentally switching Google accounts
+
+### Gmail Connection Status
+
+The `get_user_profile` endpoint now includes a `gmail_account_connected` boolean field that indicates whether the user has connected their Gmail account, helping guide the iOS app's UI flow.
+
 ### Secrets Manager
 
-I am using AWS Secrets Manager for sensitive values, such as email credentials. These values are not present in `secrets.tf` or `variables.tf`.
+I am using AWS Secrets Manager for sensitive values, including OAuth tokens and system credentials. These values are not present in `secrets.tf` or `variables.tf`.
 
 #### Usage
 - Secrets are defined in `secrets.tf`
 - Their values are passed via `terraform.tfvars`, which is gitignore'd.
-- When a new user signs up, a secret is automatically created for them in SecretsManager. 
+- When users connect their Gmail account, OAuth tokens are automatically stored in SecretsManager.
 
 | Secret Name | Purpose |
 | ----------- | ------- |
-| gmail/user/{user_id}  | GMAIL_USER, GMAIL_PASSWORD, GMAIL_IMAP_URL |
+| gmail/user/{user_id}  | OAuth 2.0 tokens: access_token, refresh_token, expires_at, scope, Google user info |
+| Google-OAuth-Client-ID | Google OAuth client ID for Gmail API access |
+| Google-OAuth-Client-Secret | Google OAuth client secret for token refresh |
 
 ### Simple Notification Service (SNS)
 
