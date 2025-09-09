@@ -18,3 +18,10 @@ resource "aws_lambda_layer_version" "pyjwt_layer" {
   filename = "../lambda_layers/jwt/pyjwt_layer.zip"
   source_code_hash = filebase64sha256("../lambda_layers/jwt/pyjwt_layer.zip")
 }
+
+resource "aws_lambda_layer_version" "google_api_layer" {
+  layer_name = "google-api-layer"
+  compatible_runtimes = ["python3.12"]
+  filename = "../lambda_layers/google_api/google_api_layer.zip"
+  source_code_hash = filebase64sha256("../lambda_layers/google_api/google_api_layer.zip")
+}

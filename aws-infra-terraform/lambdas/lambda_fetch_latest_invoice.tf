@@ -33,7 +33,8 @@ resource "aws_lambda_function" "fetch_latest_invoice" {
 
   layers = [
     aws_lambda_layer_version.utils_layer.arn,
-    aws_lambda_layer_version.pyjwt_layer.arn
+    aws_lambda_layer_version.pyjwt_layer.arn,
+    aws_lambda_layer_version.google_api_layer.arn
   ]
 
   s3_bucket         = var.lambda_bucket_id
