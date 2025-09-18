@@ -108,10 +108,6 @@ variable "rental_invoices_bucket_arn" {
   description = "The ARN of the rental invoices S3 bucket"
 }
 
-variable "email_access_credentials_secret_name" {
-  type        = string
-  description = "The name of the email access credentials secret"
-}
 
 variable "jwt_secret_version_secret_string" {
   type        = string

@@ -64,7 +64,6 @@ module "lambdas" {
   users_table_name                        = aws_dynamodb_table.users.name
   rental_invoices_table_name              = aws_dynamodb_table.rental_invoices.name
   rental_invoices_bucket_arn              = aws_s3_bucket.rental_invoices.arn
-  email_access_credentials_secret_name    = aws_secretsmanager_secret.email_access_credentials.name
   jwt_secret_version_secret_string        = data.aws_secretsmanager_secret_version.jwt_secret_version.secret_string
   google_oauth_client_id                  = var.google_oauth_client_id
   sns_topic_arn                          = aws_sns_topic.new_invoice_notification.arn

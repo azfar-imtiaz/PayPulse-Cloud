@@ -5,7 +5,6 @@ import logging
 
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.dynamodb_utils import create_user_in_dynamodb
-from utils.s3_utils import create_user_folder_in_s3
 from utils.jwt_utils import generate_jwt_token
 from utils.exceptions import InvalidCredentialsError, DatabaseError, UserAlreadyExistsError, S3Error
 
