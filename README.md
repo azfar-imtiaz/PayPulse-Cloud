@@ -283,7 +283,7 @@ PayPulse uses OAuth 2.0 for secure Gmail access instead of traditional app passw
 ### OAuth 2.0 Components
 
 #### iOS App Integration
-- Uses Google Sign-In SDK with iOS client ID: `623709424238-bggrm8506j6fqc845ee862cv9jiqi60a.apps.googleusercontent.com`
+- Uses Google Sign-In SDK with iOS client ID
 - Implements native iOS OAuth flow (public client - no client secret required)
 - Generates OAuth tokens using iOS client credentials
 - Sends OAuth tokens to backend via `/v1/auth/gmail-tokens` endpoint
