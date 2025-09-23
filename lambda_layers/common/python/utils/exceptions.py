@@ -39,3 +39,6 @@ class OAuthValidationError(Exception):
 
 class GmailAPIError(Exception):
     pass
+
+class RefreshTokenExpiredError(Exception):
+    pass

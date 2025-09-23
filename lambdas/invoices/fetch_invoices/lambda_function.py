@@ -1,6 +1,5 @@
 import os
 import json
-import email
 import boto3
 import logging
 
@@ -15,7 +14,7 @@ from utils.s3_utils import download_and_upload_attachment
 from utils.dynamodb_utils import is_invoice_already_parsed, get_all_invoice_dates
 from utils.secretsmanager_utils import get_oauth_tokens
 from utils.gmail_api_utils import create_gmail_service, search_emails, get_email_content
-from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, GmailAPIError, OAuthValidationError, SecretsManagerError
+from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, GmailAPIError, OAuthValidationError, SecretsManagerError, RefreshTokenExpiredError
 
 s3_client = boto3.client('s3')
 config = Config(retries={'max_attempts': 5, 'mode': 'adaptive'})
@@ -104,11 +103,14 @@ def lambda_handler(event, context):
     except GmailAPIError as e:
         return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Gmail API error", 502, e)
         
+    except RefreshTokenExpiredError as e:
+        return log_and_generate_error_response(ErrorCode.GMAIL_TOKEN_EXPIRED, "Gmail account needs to be re-connected", 502, e)
+
     except OAuthValidationError as e:
         return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "OAuth token error", 401, e)
-        
+
     except SecretsManagerError as e:
-        return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Error retrieving OAuth tokens", 502, e)
+        return log_and_generate_error_response(ErrorCode.GMAIL_TOKEN_EXPIRED, "Error retrieving OAuth tokens", 502, e)
 
     except InvalidCredentialsError as e:
         return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)

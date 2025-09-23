@@ -211,3 +211,39 @@ def update_oauth_tokens(user_id: str, access_token: str, refresh_token: str, exp
         
     except ClientError as e:
         raise SecretsManagerError(f"Error updating OAuth tokens for user {user_id}") from e
+
+
+def delete_oauth_tokens(user_id: str, region: str):
+    """
+    Deletes OAuth tokens for a user from Secrets Manager.
+    Used when refresh tokens are expired/revoked and need to be cleared.
+
+    Args:
+        user_id: The user ID
+        region: AWS region
+
+    Raises:
+        SecretsManagerError: If deletion fails
+    """
+    secret_name = f"gmail/user/{user_id}"
+
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region
+    )
+
+    try:
+        client.delete_secret(
+            SecretId=secret_name,
+            ForceDeleteWithoutRecovery=True
+        )
+        logging.info(f"Successfully deleted OAuth tokens for user {user_id}")
+
+    except client.exceptions.ResourceNotFoundException:
+        # Secret doesn't exist - that's fine
+        logging.warning(f"No OAuth tokens found for user {user_id}")
+
+    except ClientError as e:
+        raise SecretsManagerError(f"Error deleting OAuth tokens for user {user_id}") from e

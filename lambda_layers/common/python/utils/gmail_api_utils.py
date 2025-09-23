@@ -7,7 +7,7 @@ from google.oauth2.credentials import Credentials as OAuth2Credentials
 from googleapiclient.discovery import build
 from google.auth.exceptions import RefreshError
 
-from utils.exceptions import GmailAPIError, OAuthValidationError
+from utils.exceptions import GmailAPIError, OAuthValidationError, RefreshTokenExpiredError
 
 
 def create_gmail_service(user_id: str, access_token: str, refresh_token: str, client_id: str, region: str, client_secret: str = None, expires_at: str = None):
@@ -88,14 +88,27 @@ def create_gmail_service(user_id: str, access_token: str, refresh_token: str, cl
                 logging.info("Access token refreshed and updated in Secrets Manager")
                 
             except RefreshError as e:
-                raise OAuthValidationError(f"Token refresh failed: {str(e)}") from e
+                error_str = str(e)
+                # Check if this is an expired/revoked refresh token
+                if 'invalid_grant' in error_str and ('expired' in error_str or 'revoked' in error_str):
+                    logging.warning(f"Refresh token expired/revoked for user {user_id}. Clearing tokens.")
+                    # Clear the expired tokens from Secrets Manager
+                    from utils.secretsmanager_utils import delete_oauth_tokens
+                    try:
+                        delete_oauth_tokens(user_id, region)
+                    except Exception as delete_error:
+                        logging.error(f"Failed to clear expired tokens: {delete_error}")
+
+                    raise RefreshTokenExpiredError(f"Refresh token has expired or been revoked. Please re-connect your Gmail account.") from e
+                else:
+                    raise OAuthValidationError(f"Token refresh failed: {str(e)}") from e
         
         # Build Gmail service
         service = build('gmail', 'v1', credentials=credentials)
         logging.info("Gmail API service created successfully")
         return service
         
-    except OAuthValidationError:
+    except (OAuthValidationError, RefreshTokenExpiredError):
         raise
     except Exception as e:
         raise GmailAPIError(f"Failed to create Gmail API service: {str(e)}") from e
