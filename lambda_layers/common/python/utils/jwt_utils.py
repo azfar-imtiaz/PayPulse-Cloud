@@ -11,7 +11,7 @@ def generate_jwt_token(user_id: str, email: str, jwt_secret: str) -> str:
             "user_id": user_id,
             "email": email,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 86400     # 24 hours
+            "exp": int(time.time()) + 3600      # 1 hour
         }
         token = jwt.encode(payload, jwt_secret, algorithm="HS256")
         logging.info("Token generated successfully!")
