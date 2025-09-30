@@ -71,7 +71,7 @@ resource "aws_s3_bucket_notification" "invoice_upload_trigger" {
   lambda_function {
     lambda_function_arn = module.lambdas.parse_invoice_arn
     events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = var.path_to_invoices
+    filter_prefix       = "invoices/"
     filter_suffix       = ".pdf"
   }
 

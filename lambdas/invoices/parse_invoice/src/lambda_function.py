@@ -25,7 +25,13 @@ def lambda_handler(event, context=None):
             logging.info("Downloading file...")
             bucket = record['s3']['bucket']['name']
             key = record['s3']['object']['key']
-            user_id = key.split('/')[-2]
+            # Extract user_id from new path structure: invoices/{user_id}/rental/{filename} or invoices/{user_id}/retail/{category}/{filename}
+            path_parts = key.split('/')
+            if len(path_parts) >= 3 and path_parts[0] == 'invoices':
+                user_id = path_parts[1]
+            else:
+                # Fallback for old structure: rental-invoices/{user_id}/{filename}
+                user_id = path_parts[-2] if len(path_parts) >= 2 else 'unknown'
 
             logging.info(f"\tBucket: {bucket}; Key: {key}; UserID: {user_id}")
 
@@ -91,20 +97,20 @@ if __name__ == '__main__':
         {
           "s3": {
             "bucket": {
-              "name": "rental-invoices-bucket"
+              "name": "invoices-bucket"
             },
             "object": {
-              "key": "rental-invoices/azy.imtiaz/Hyresavi_1306798107.pdf"
+              "key": "invoices/azy.imtiaz/rental/Hyresavi_1306798107.pdf"
             }
           }
         },
         {
           "s3": {
               "bucket": {
-                  "name": "rental-invoices-bucket"
+                  "name": "invoices-bucket"
               },
               "object": {
-                  "key": "rental-invoices/azy.imtiaz/Hyresavi_1339178608.pdf"
+                  "key": "invoices/azy.imtiaz/rental/Hyresavi_1339178608.pdf"
               }
           }
         }

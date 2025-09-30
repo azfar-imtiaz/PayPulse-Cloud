@@ -1,5 +1,6 @@
 import os
 import json
+import boto3
 from urllib.parse import parse_qs
 from urllib.error import URLError, HTTPError
 
@@ -7,6 +8,7 @@ from utils.responses import success_response, log_and_generate_error_response, E
 from utils.secretsmanager_utils import store_oauth_tokens
 from utils.oauth_utils import validate_oauth_tokens, get_google_user_info, validate_google_account_consistency
 from utils.jwt_utils import get_user_id_from_token
+from utils.s3_utils import create_user_folders_in_s3
 from utils.exceptions import (
     JWTDecodingError, 
     InvalidCredentialsError, 
@@ -18,6 +20,9 @@ from utils.exceptions import (
 
 JWT_SECRET = os.environ['JWT_SECRET']
 REGION = os.environ['REGION']
+S3_BUCKET = os.environ.get('S3_BUCKET', '')
+
+s3_client = boto3.client('s3')
 
 def lambda_handler(event, context):
     """
@@ -119,7 +124,16 @@ def lambda_handler(event, context):
         )
         
         print(f"Successfully stored OAuth tokens for user {user_id}")
-        
+
+        # Create user folder structure in S3 if bucket is configured
+        if S3_BUCKET:
+            try:
+                create_user_folder_in_s3(s3_client, user_id, S3_BUCKET)
+                print(f"Created S3 folder structure for user {user_id}")
+            except Exception as e:
+                print(f"Warning: Failed to create S3 folder structure for user {user_id}: {e}")
+                # Don't fail the entire request if folder creation fails
+
         return success_response(
             message="Gmail OAuth tokens stored successfully!",
             data={

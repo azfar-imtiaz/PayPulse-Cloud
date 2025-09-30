@@ -6,11 +6,11 @@ RUN yum -y install gcc poppler-utils
 WORKDIR /var/task
 
 # Install requirements
-COPY lambdas/parse_invoice/requirements.txt .
+COPY lambdas/invoices/parse_invoice/requirements.txt .
 RUN pip3 install -r requirements.txt
 
 # Copy lambda function source
-COPY lambdas/parse_invoice/src/ .
+COPY lambdas/invoices/parse_invoice/src/ .
 
 # Copy common utils
 COPY lambda_layers/common/python/utils/ utils/

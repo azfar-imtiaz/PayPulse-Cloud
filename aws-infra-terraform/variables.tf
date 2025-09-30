@@ -38,14 +38,14 @@ variable "lambda_role" {
 
 variable "invoices_bucket_name" {
   type        = string
-  description = "The S3 bucket which stores the rental invoices"
+  description = "The S3 bucket which stores all types of invoices"
   default     = "rental-invoices-bucket"
 }
 
 variable "path_to_invoices" {
   type        = string
   description = "The path to the rental invoices on the S3 bucket"
-  default     = "rental-invoices/"
+  default     = "invoices/"
 }
 
 variable "lambda_functions_bucket_name" {
