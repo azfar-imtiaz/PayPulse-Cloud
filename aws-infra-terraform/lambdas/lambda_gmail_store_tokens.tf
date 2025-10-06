@@ -12,8 +12,8 @@ resource "aws_lambda_function" "gmail_store_tokens" {
   runtime       = var.python_runtime
   role          = var.gmail_store_tokens_lambda_role_arn
 
-  timeout       = 15
-  memory_size   = 128
+  timeout     = 15
+  memory_size = 128
 
   environment {
     variables = {
@@ -27,7 +27,7 @@ resource "aws_lambda_function" "gmail_store_tokens" {
     aws_lambda_layer_version.pyjwt_layer.arn
   ]
 
-  s3_bucket = var.lambda_bucket_id
-  s3_key    = "${var.lambda_gmail_store_tokens}.zip"
+  s3_bucket         = var.lambda_bucket_id
+  s3_key            = "${var.lambda_gmail_store_tokens}.zip"
   s3_object_version = data.aws_s3_bucket_object.gmail_store_tokens_zip.version_id
 }

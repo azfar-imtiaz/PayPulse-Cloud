@@ -6,22 +6,22 @@ data "klayers_package_latest_version" "bcrypt" {
 }
 
 resource "aws_lambda_layer_version" "utils_layer" {
-  layer_name = "utils-layer"
+  layer_name          = "utils-layer"
   compatible_runtimes = ["python3.12"]
-  filename = "../lambda_layers/common/utils_layer.zip"
-  source_code_hash = filebase64sha256("../lambda_layers/common/utils_layer.zip")
+  filename            = "../lambda_layers/common/utils_layer.zip"
+  source_code_hash    = filebase64sha256("../lambda_layers/common/utils_layer.zip")
 }
 
 resource "aws_lambda_layer_version" "pyjwt_layer" {
-  layer_name = "pyjwt-layer"
+  layer_name          = "pyjwt-layer"
   compatible_runtimes = ["python3.12"]
-  filename = "../lambda_layers/jwt/pyjwt_layer.zip"
-  source_code_hash = filebase64sha256("../lambda_layers/jwt/pyjwt_layer.zip")
+  filename            = "../lambda_layers/jwt/pyjwt_layer.zip"
+  source_code_hash    = filebase64sha256("../lambda_layers/jwt/pyjwt_layer.zip")
 }
 
 resource "aws_lambda_layer_version" "google_api_layer" {
-  layer_name = "google-api-layer"
+  layer_name          = "google-api-layer"
   compatible_runtimes = ["python3.12"]
-  filename = "../lambda_layers/google_api/google_api_layer.zip"
-  source_code_hash = filebase64sha256("../lambda_layers/google_api/google_api_layer.zip")
+  filename            = "../lambda_layers/google_api/google_api_layer.zip"
+  source_code_hash    = filebase64sha256("../lambda_layers/google_api/google_api_layer.zip")
 }

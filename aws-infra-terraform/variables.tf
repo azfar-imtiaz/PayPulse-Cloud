@@ -138,7 +138,7 @@ variable "daily_lambda_trigger" {
 variable "daily_lambda_trigger_schedule" {
   type        = string
   description = "The schedule expression of the daily lambda function trigger cron job"
-  default     = "cron(30 8 ? * MON-FRI *)"  # This is 8:30 AM UTC
+  default     = "cron(30 8 ? * MON-FRI *)" # This is 8:30 AM UTC
 }
 
 # Lambda
@@ -241,4 +241,54 @@ variable "identity_pool_name" {
   type        = string
   description = "The Identity Pool Name for Cognito"
   default     = "WallenstamAppIdentityPool"
+}
+
+# Retail Invoices Tables
+
+variable "retail_invoices_table" {
+  type        = string
+  description = "The DynamoDB table for retail invoice base data"
+  default     = "RetailInvoices"
+}
+
+variable "food_delivery_invoices_table" {
+  type        = string
+  description = "The DynamoDB table for food delivery invoice details"
+  default     = "FoodDeliveryInvoices"
+}
+
+variable "clothing_invoices_table" {
+  type        = string
+  description = "The DynamoDB table for clothing invoice details"
+  default     = "ClothingInvoices"
+}
+
+variable "technology_invoices_table" {
+  type        = string
+  description = "The DynamoDB table for technology invoice details"
+  default     = "TechnologyInvoices"
+}
+
+variable "subscription_invoices_table" {
+  type        = string
+  description = "The DynamoDB table for subscription invoice details"
+  default     = "SubscriptionInvoices"
+}
+
+variable "grocery_invoices_table" {
+  type        = string
+  description = "The DynamoDB table for grocery invoice details"
+  default     = "GroceryInvoices"
+}
+
+variable "misc_utility_invoices_table" {
+  type        = string
+  description = "The DynamoDB table for miscellaneous utility invoices"
+  default     = "MiscellaneousUtilityInvoices"
+}
+
+variable "misc_invoices_table" {
+  type        = string
+  description = "The DynamoDB table for miscellaneous invoices"
+  default     = "MiscellaneousInvoices"
 }

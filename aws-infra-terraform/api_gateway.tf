@@ -42,7 +42,7 @@ resource "aws_apigatewayv2_stage" "api_stage" {
 
 # CloudWatch log group for API Gateway logging
 resource "aws_cloudwatch_log_group" "api_gateway_logs" {
-  name = "/aws/apigateway/${aws_apigatewayv2_api.paypulse_api.name}"
+  name              = "/aws/apigateway/${aws_apigatewayv2_api.paypulse_api.name}"
   retention_in_days = 30
 }
 
@@ -56,7 +56,7 @@ resource "aws_cloudwatch_log_group" "api_gateway_logs" {
 # Connect API Gateway to SignupUser lambda function
 resource "aws_apigatewayv2_integration" "signup_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
-  integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
+  integration_type       = "AWS_PROXY" # this means just forward the whole request body to the lambda function
   integration_uri        = module.lambdas.signup_user_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
@@ -64,9 +64,9 @@ resource "aws_apigatewayv2_integration" "signup_integration" {
 
 # Create a route (URL path/auth/signup)
 resource "aws_apigatewayv2_route" "signup_route" {
-  api_id     = aws_apigatewayv2_api.paypulse_api.id
-  route_key  = "POST /${var.api_version}/auth/signup"
-  target     = "integrations/${aws_apigatewayv2_integration.signup_integration.id}"
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "POST /${var.api_version}/auth/signup"
+  target    = "integrations/${aws_apigatewayv2_integration.signup_integration.id}"
 }
 
 # Allow API Gateway to invoke the signup lambda function
@@ -83,7 +83,7 @@ resource "aws_lambda_permission" "signup_api_permission" {
 # Connect API Gateway to LoginUser lambda function
 resource "aws_apigatewayv2_integration" "login_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
-  integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
+  integration_type       = "AWS_PROXY" # this means just forward the whole request body to the lambda function
   integration_uri        = module.lambdas.login_user_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
@@ -111,7 +111,7 @@ resource "aws_lambda_permission" "login_api_permission" {
 # Connect API Gateway to fetch_invoices lambda function
 resource "aws_apigatewayv2_integration" "fetch_invoices_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
-  integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
+  integration_type       = "AWS_PROXY" # this means just forward the whole request body to the lambda function
   integration_uri        = module.lambdas.fetch_invoices_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
@@ -138,7 +138,7 @@ resource "aws_lambda_permission" "fetch_invoices_api_permission" {
 # Connect API Gateway to fetch_invoices lambda function
 resource "aws_apigatewayv2_integration" "fetch_latest_invoice_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
-  integration_type       = "AWS_PROXY"  # this means just forward the whole request body to the lambda function
+  integration_type       = "AWS_PROXY" # this means just forward the whole request body to the lambda function
   integration_uri        = module.lambdas.fetch_latest_invoice_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"

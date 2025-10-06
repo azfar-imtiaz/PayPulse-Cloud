@@ -28,7 +28,7 @@ resource "aws_lambda_function" "login_user" {
     aws_lambda_layer_version.utils_layer.arn
   ]
 
-  s3_bucket = var.lambda_bucket_id
-  s3_key    = "${var.lambda_login_user}.zip"
+  s3_bucket         = var.lambda_bucket_id
+  s3_key            = "${var.lambda_login_user}.zip"
   s3_object_version = data.aws_s3_bucket_object.login_user_zip.version_id
 }

@@ -57,7 +57,7 @@ resource "aws_s3_bucket_policy" "lambda_bucket_policy" {
         Principal = {
           Service = "lambda.amazonaws.com"
         },
-        Action = "s3:GetObject",
+        Action   = "s3:GetObject",
         Resource = "${aws_s3_bucket.lambda_bucket.arn}/*"
       }
     ]

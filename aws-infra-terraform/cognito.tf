@@ -1,5 +1,5 @@
 resource "aws_cognito_identity_pool" "wallenstam_identity_pool" {
-  identity_pool_name = var.identity_pool_name
+  identity_pool_name               = var.identity_pool_name
   allow_unauthenticated_identities = true
 }
 
@@ -7,7 +7,7 @@ resource "aws_cognito_identity_pool" "wallenstam_identity_pool" {
 resource "aws_cognito_user_pool" "user_pool" {
   name = "PayPulseUserPool"
 
-  username_attributes = ["email"]
+  username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
   password_policy {

@@ -12,8 +12,8 @@ resource "aws_lambda_function" "delete_user" {
   runtime       = var.python_runtime
   handler       = "main.lambda_handler"
 
-  timeout       = 30
-  memory_size   = 128
+  timeout     = 30
+  memory_size = 128
 
   environment {
     variables = {

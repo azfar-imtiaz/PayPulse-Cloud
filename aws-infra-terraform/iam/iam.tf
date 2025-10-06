@@ -16,7 +16,7 @@ resource "aws_iam_group_policy_attachment" "wallenstam_group_policies" {
     "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
     "arn:aws:iam::aws:policy/IAMFullAccess",
     "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
-	])
+  ])
 
   group      = aws_iam_group.wallenstam_group.name
   policy_arn = each.value
@@ -36,14 +36,14 @@ resource "aws_iam_user_group_membership" "wallenstam_membership" {
 
 # === Defining the autoscaling policy ===
 resource "aws_iam_policy" "autoscaling_permissions" {
-  name = "TerraformAutoScalingPermissions"
+  name        = "TerraformAutoScalingPermissions"
   description = "Permissions required by Terraform to manage DynamoDB autoscaling"
-  policy      = jsonencode({
+  policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "application-autoscaling:DescribeScalableTargets",
           "application-autoscaling:DescribeScalingPolicies",
           "application-autoscaling:DescribeScheduledActions",
@@ -65,7 +65,7 @@ resource "aws_iam_user_policy_attachment" "user_autoscaling_attach" {
 
 # === Defining the APIGateway policy ===
 resource "aws_iam_policy" "api_gateway_policy" {
-  name = "APIGatewayFullAccessPolicy"
+  name        = "APIGatewayFullAccessPolicy"
   description = "Policy to allow API Gateway operations"
 
   policy = jsonencode({
@@ -120,14 +120,14 @@ resource "aws_iam_role" "wallenstam_app_identity_role" {
   inline_policy {
     name = "cognito-unauthenticated"
     policy = jsonencode({
-      "Version": "2012-10-17",
-      "Statement": [
+      "Version" : "2012-10-17",
+      "Statement" : [
         {
-          "Effect": "Allow",
-          "Action": [
-              "cognito-identity:GetCredentialsForIdentity"
+          "Effect" : "Allow",
+          "Action" : [
+            "cognito-identity:GetCredentialsForIdentity"
           ],
-          "Resource": ["*"]
+          "Resource" : ["*"]
         }
       ]
     })
@@ -137,14 +137,14 @@ resource "aws_iam_role" "wallenstam_app_identity_role" {
   inline_policy {
     name = "wallenstam_sns_policy"
     policy = jsonencode({
-      "Version": "2012-10-17",
-      "Statement": [
-          {
-              "Sid": "VisualEditor0",
-              "Effect": "Allow",
-              "Action": "sns:CreatePlatformEndpoint",
-              "Resource": "*"
-          }
+      "Version" : "2012-10-17",
+      "Statement" : [
+        {
+          "Sid" : "VisualEditor0",
+          "Effect" : "Allow",
+          "Action" : "sns:CreatePlatformEndpoint",
+          "Resource" : "*"
+        }
       ]
     })
   }
@@ -182,14 +182,14 @@ resource "aws_iam_role" "dynamodb_autoscale_role" {
 resource "aws_iam_role" "wallenstam_lambda_role" {
   name = var.lambda_role
   assume_role_policy = jsonencode({
-    "Version": "2012-10-17",
-    "Statement": [{
-      "Effect": "Allow",
-      "Principal": {
-          "Service": "lambda.amazonaws.com"
+    "Version" : "2012-10-17",
+    "Statement" : [{
+      "Effect" : "Allow",
+      "Principal" : {
+        "Service" : "lambda.amazonaws.com"
       },
-      "Action": "sts:AssumeRole"
-      }]
+      "Action" : "sts:AssumeRole"
+    }]
   })
 }
 

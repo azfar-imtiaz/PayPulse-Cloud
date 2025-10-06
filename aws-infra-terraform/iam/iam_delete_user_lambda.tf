@@ -3,8 +3,8 @@ resource "aws_iam_role" "delete_user_lambda_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Action    = "sts:AssumeRole",
-      Effect    = "Allow",
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
       Principal = {
         Service = "lambda.amazonaws.com"
       }
@@ -22,11 +22,20 @@ resource "aws_iam_policy" "delete_user_lambda_policy" {
         Action = [
           "dynamodb:Query",
           "dynamodb:DeleteItem",
-          "dynamodb:Scan"
+          "dynamodb:Scan",
+          "dynamodb:GetItem"
         ],
         Resource = [
           var.rental_invoices_table_arn,
-          var.users_table_arn
+          var.users_table_arn,
+          var.retail_invoices_table_arn,
+          var.food_delivery_invoices_table_arn,
+          var.clothing_invoices_table_arn,
+          var.technology_invoices_table_arn,
+          var.subscription_invoices_table_arn,
+          var.grocery_invoices_table_arn,
+          var.misc_utility_invoices_table_arn,
+          var.misc_invoices_table_arn
         ]
       },
       {

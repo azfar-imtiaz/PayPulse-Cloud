@@ -24,14 +24,14 @@ resource "aws_iam_policy" "login_lambda_policy" {
           "dynamodb:GetItem",
           "dynamodb:Query"
         ],
-        Effect = "Allow",
+        Effect   = "Allow",
         Resource = var.users_table_arn
       },
       {
         Action = [
           "secretsmanager:GetSecretValue"
         ],
-        Effect = "Allow",
+        Effect   = "Allow",
         Resource = var.jwt_secret_arn
       }
     ]
@@ -39,6 +39,6 @@ resource "aws_iam_policy" "login_lambda_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "login_lambda_role_attachment" {
-  role = aws_iam_role.login_lambda_role.name
+  role       = aws_iam_role.login_lambda_role.name
   policy_arn = aws_iam_policy.login_lambda_policy.arn
 }

@@ -22,7 +22,7 @@ resource "aws_iam_policy" "gmail_store_tokens_lambda_policy" {
       {
         Action = [
           "secretsmanager:CreateSecret",
-          "secretsmanager:UpdateSecret", 
+          "secretsmanager:UpdateSecret",
           "secretsmanager:PutSecretValue",
           "secretsmanager:GetSecretValue"
         ],
@@ -35,10 +35,10 @@ resource "aws_iam_policy" "gmail_store_tokens_lambda_policy" {
       {
         Action = [
           "logs:CreateLogGroup",
-          "logs:CreateLogStream", 
+          "logs:CreateLogStream",
           "logs:PutLogEvents"
         ],
-        Effect = "Allow",
+        Effect   = "Allow",
         Resource = "arn:aws:logs:*:*:*"
       }
     ]
@@ -51,6 +51,6 @@ resource "aws_iam_role_policy_attachment" "gmail_store_tokens_lambda_basic_execu
 }
 
 resource "aws_iam_role_policy_attachment" "gmail_store_tokens_lambda_role_attachment" {
-  role = aws_iam_role.gmail_store_tokens_lambda_role.name
+  role       = aws_iam_role.gmail_store_tokens_lambda_role.name
   policy_arn = aws_iam_policy.gmail_store_tokens_lambda_policy.arn
 }

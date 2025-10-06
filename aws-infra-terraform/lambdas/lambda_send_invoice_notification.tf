@@ -19,7 +19,7 @@ resource "aws_lambda_function" "send_invoice_notification" {
     }
   }
 
-  s3_bucket = var.lambda_bucket_id
-  s3_key    = "${var.lambda_send_rental_invoice_notification}.zip"
+  s3_bucket         = var.lambda_bucket_id
+  s3_key            = "${var.lambda_send_rental_invoice_notification}.zip"
   s3_object_version = data.aws_s3_bucket_object.send_invoice_notification_zip.version_id
 }

@@ -24,7 +24,7 @@ resource "aws_iam_policy" "signup_lambda_policy" {
           "dynamodb:PutItem",
           "dynamodb:GetItem"
         ],
-        Effect = "Allow",
+        Effect   = "Allow",
         Resource = var.users_table_arn
       },
       {
@@ -41,7 +41,7 @@ resource "aws_iam_policy" "signup_lambda_policy" {
         Action = [
           "s3:PutObject"
         ],
-        Effect = "Allow",
+        Effect   = "Allow",
         Resource = "arn:aws:s3:::${var.invoices_bucket_name}/*"
       },
       {
@@ -49,7 +49,7 @@ resource "aws_iam_policy" "signup_lambda_policy" {
           "secretsmanager:CreateSecret",
           "secretsmanager:PutSecretValue"
         ],
-        Effect = "Allow",
+        Effect   = "Allow",
         Resource = "*"
       }
     ]
@@ -57,6 +57,6 @@ resource "aws_iam_policy" "signup_lambda_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "signup_lambda_role_attachment" {
-  role = aws_iam_role.signup_lambda_role.name
+  role       = aws_iam_role.signup_lambda_role.name
   policy_arn = aws_iam_policy.signup_lambda_policy.arn
 }

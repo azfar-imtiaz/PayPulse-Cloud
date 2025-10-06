@@ -49,3 +49,45 @@ variable "google_oauth_client_id_secret_arn" {
   type        = string
   description = "The ARN of the Google OAuth client ID secret"
 }
+
+# Retail Invoices Tables ARNs
+
+variable "retail_invoices_table_arn" {
+  type        = string
+  description = "ARN of RetailInvoices table"
+}
+
+variable "food_delivery_invoices_table_arn" {
+  type        = string
+  description = "ARN of FoodDeliveryInvoices table"
+}
+
+variable "clothing_invoices_table_arn" {
+  type        = string
+  description = "ARN of ClothingInvoices table"
+}
+
+variable "technology_invoices_table_arn" {
+  type        = string
+  description = "ARN of TechnologyInvoices table"
+}
+
+variable "subscription_invoices_table_arn" {
+  type        = string
+  description = "ARN of SubscriptionInvoices table"
+}
+
+variable "grocery_invoices_table_arn" {
+  type        = string
+  description = "ARN of GroceryInvoices table"
+}
+
+variable "misc_utility_invoices_table_arn" {
+  type        = string
+  description = "ARN of MiscellaneousUtilityInvoices table"
+}
+
+variable "misc_invoices_table_arn" {
+  type        = string
+  description = "ARN of MiscellaneousInvoices table"
+}

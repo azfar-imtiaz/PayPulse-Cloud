@@ -16,7 +16,7 @@ resource "aws_appautoscaling_policy" "dynamodb_read_policy" {
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {
       predefined_metric_type = "DynamoDBReadCapacityUtilization"
-    }  
+    }
 
     target_value       = 70.0
     scale_in_cooldown  = 60
@@ -43,7 +43,7 @@ resource "aws_appautoscaling_policy" "dynamodb_write_policy" {
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {
       predefined_metric_type = "DynamoDBWriteCapacityUtilization"
-    }  
+    }
 
     target_value       = 70.0
     scale_in_cooldown  = 60
