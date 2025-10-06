@@ -1,0 +1,19 @@
+{
+  "vendor_id": {"S": "dominos"},
+  "vendor_name": {"S": "Dominos"},
+  "invoice_category": {"S": "retail"},
+  "invoice_sub_type": {"S": "food-delivery"},
+  "default_email_patterns": {"SS": [
+    "domino@dominos.se"
+  ]},
+  "default_subject_keywords": {"SS": [
+    "Tack for din beställning"
+  ]},
+  "parser_type": {"S": "html"},
+  "active": {"BOOL": true},
+  "supports_pdf": {"BOOL": false},
+  "supports_html": {"BOOL": true},
+  "logo_url": {"S": "https://paypulse-vendor-logos.s3.eu-west-1.amazonaws.com/svgs/dominos.svg"},
+  "created_at": {"S": "2025-10-06T10:30:00Z"},
+  "updated_at": {"S": "2025-10-06T10:30:00Z"}
+}

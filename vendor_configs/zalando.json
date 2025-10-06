@@ -1,0 +1,19 @@
+{
+  "vendor_id": {"S": "zalando"},
+  "vendor_name": {"S": "Zalando"},
+  "invoice_category": {"S": "retail"},
+  "invoice_sub_type": {"S": "clothing"},
+  "default_email_patterns": {"SS": [
+    "info@service-mail.zalando.se"
+  ]},
+  "default_subject_keywords": {"SS": [
+    "Thanks for your order"
+  ]},
+  "parser_type": {"S": "html"},
+  "active": {"BOOL": true},
+  "supports_pdf": {"BOOL": false},
+  "supports_html": {"BOOL": true},
+  "logo_url": {"S": "https://paypulse-vendor-logos.s3.eu-west-1.amazonaws.com/svgs/zalando.svg"},
+  "created_at": {"S": "2025-10-06T10:30:00Z"},
+  "updated_at": {"S": "2025-10-06T10:30:00Z"}
+}
