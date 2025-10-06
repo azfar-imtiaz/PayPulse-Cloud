@@ -89,3 +89,13 @@ output "misc_invoices_table_arn" {
   value       = aws_dynamodb_table.misc_invoices.arn
   description = "MiscellaneousInvoices table ARN"
 }
+
+output "vendor_config_table_name" {
+  value       = aws_dynamodb_table.vendor_config.name
+  description = "VendorConfig table name"
+}
+
+output "vendor_config_table_arn" {
+  value       = aws_dynamodb_table.vendor_config.arn
+  description = "VendorConfig table ARN"
+}

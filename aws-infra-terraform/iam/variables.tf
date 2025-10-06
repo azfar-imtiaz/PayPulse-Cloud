@@ -91,3 +91,8 @@ variable "misc_invoices_table_arn" {
   type        = string
   description = "ARN of MiscellaneousInvoices table"
 }
+
+variable "vendor_config_table_arn" {
+  type        = string
+  description = "ARN of VendorConfig table"
+}

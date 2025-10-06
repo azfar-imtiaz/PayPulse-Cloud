@@ -300,3 +300,25 @@ resource "aws_dynamodb_table" "misc_invoices" {
     Environment = "production"
   }
 }
+
+# Vendor Configuration table
+
+resource "aws_dynamodb_table" "vendor_config" {
+  name         = var.vendor_config_table
+  billing_mode = "PAY_PER_REQUEST"
+
+  hash_key = "vendor_id"
+
+  attribute {
+    name = "vendor_id"
+    type = "S"
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = {
+    Environment = "production"
+  }
+}

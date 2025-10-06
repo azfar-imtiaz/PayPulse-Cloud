@@ -292,3 +292,9 @@ variable "misc_invoices_table" {
   description = "The DynamoDB table for miscellaneous invoices"
   default     = "MiscellaneousInvoices"
 }
+
+variable "vendor_config_table" {
+  type        = string
+  description = "The DynamoDB table for vendor configuration"
+  default     = "VendorConfig"
+}

@@ -44,6 +44,7 @@ module "iam" {
   grocery_invoices_table_arn       = aws_dynamodb_table.grocery_invoices.arn
   misc_utility_invoices_table_arn  = aws_dynamodb_table.misc_utility_invoices.arn
   misc_invoices_table_arn          = aws_dynamodb_table.misc_invoices.arn
+  vendor_config_table_arn          = aws_dynamodb_table.vendor_config.arn
 }
 
 # Lambda module
