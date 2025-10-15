@@ -239,3 +239,76 @@ def get_latest_email_by_date(service, sender: str, subject: str, target_month: i
     except Exception as e:
         raise GmailAPIError(f"Failed to get latest email by date: {str(e)}") from e
 
+
+def build_gmail_query(email_patterns: List[str], subject_keywords: List[str],
+                      start_date: str, end_date: str) -> str:
+    """
+    Build Gmail search query from vendor config
+
+    Args:
+        email_patterns: List of email addresses (e.g., ["domino@dominos.se"])
+        subject_keywords: List of keywords (e.g., ["Tack for din beställning"])
+        start_date: Start date "YYYY/MM/DD"
+        end_date: End date "YYYY/MM/DD"
+
+    Returns:
+        Gmail query string
+
+    Example output:
+        '(from:domino@dominos.se) subject:"orderbekräftelse" after:2024/01/01 before:2024/01/31'
+    """
+    # Build FROM clause (OR multiple email patterns)
+    from_clause = " OR ".join([f"from:{email}" for email in email_patterns])
+    if len(email_patterns) > 1:
+        from_clause = f"({from_clause})"
+
+    # Build SUBJECT clause (OR multiple keywords)
+    subject_clause = ""
+    if subject_keywords:
+        subject_parts = " OR ".join([f'subject:"{keyword}"' for keyword in subject_keywords])
+        if len(subject_keywords) > 1:
+            subject_clause = f"({subject_parts})"
+        else:
+            subject_clause = subject_parts
+
+    # Combine with date range
+    query_parts = [from_clause]
+    if subject_clause:
+        query_parts.append(subject_clause)
+    query_parts.append(f"after:{start_date}")
+    query_parts.append(f"before:{end_date}")
+
+    query = " ".join(query_parts)
+    logging.info(f"Built Gmail query: {query}")
+    return query
+
+
+def extract_html_from_email(email_message: Message) -> str:
+    """
+    Extract HTML body from email message
+
+    Args:
+        email_message: Email Message object
+
+    Returns:
+        HTML content as string
+    """
+    html_body = None
+
+    if email_message.is_multipart():
+        for part in email_message.walk():
+            content_type = part.get_content_type()
+
+            # Prefer HTML over plain text
+            if content_type == 'text/html':
+                html_body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+                break
+            elif content_type == 'text/plain' and html_body is None:
+                # Fallback to plain text if no HTML
+                html_body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+    else:
+        # Not multipart
+        html_body = email_message.get_payload(decode=True).decode('utf-8', errors='ignore')
+
+    return html_body or ""
+

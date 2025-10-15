@@ -1,0 +1,15 @@
+# No additional requirements needed for fetch_retail_invoices Lambda function
+# All dependencies are provided by Lambda layers:
+#
+# - common layer (utils): OAuth, Gmail API, DynamoDB, S3, Secrets Manager utilities
+# - jwt layer: PyJWT for token validation
+# - google_api layer (Klayers): Google API client libraries
+#
+# Built-in Python libraries used:
+# - os
+# - json
+# - boto3 (provided by Lambda runtime)
+# - logging (built-in)
+# - time (built-in)
+# - datetime (built-in)
+# - typing (built-in)

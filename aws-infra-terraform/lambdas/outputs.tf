@@ -109,6 +109,16 @@ output "gmail_store_tokens_invoke_arn" {
   value       = aws_lambda_function.gmail_store_tokens.invoke_arn
 }
 
+output "fetch_retail_invoices_function_name" {
+  description = "Name of the fetch retail invoices lambda function"
+  value       = aws_lambda_function.fetch_retail_invoices.function_name
+}
+
+output "fetch_retail_invoices_invoke_arn" {
+  description = "Invoke ARN of the fetch retail invoices lambda function"
+  value       = aws_lambda_function.fetch_retail_invoices.invoke_arn
+}
+
 # Lambda layers outputs
 output "utils_layer_arn" {
   description = "ARN of the utils lambda layer"

@@ -55,6 +55,7 @@ module "lambdas" {
   aws_region                              = var.aws_region
   python_runtime                          = var.python_runtime
   lambda_fetch_rental_invoices            = var.lambda_fetch_rental_invoices
+  lambda_fetch_retail_invoices            = var.lambda_fetch_retail_invoices
   lambda_fetch_latest_rental_invoice      = var.lambda_fetch_latest_rental_invoice
   lambda_parse_rental_invoice             = var.lambda_parse_rental_invoice
   lambda_send_rental_invoice_notification = var.lambda_send_rental_invoice_notification
@@ -81,11 +82,13 @@ module "lambdas" {
   daily_lambda_trigger_arn         = aws_cloudwatch_event_rule.daily_lambda_trigger.arn
 
   # Pass IAM role ARNs from IAM module
-  wallenstam_lambda_role_arn          = module.iam.wallenstam_lambda_role_arn
-  signup_lambda_role_arn              = module.iam.signup_lambda_role_arn
-  delete_user_lambda_role_arn         = module.iam.delete_user_lambda_role_arn
-  get_rental_invoices_lambda_role_arn = module.iam.get_rental_invoices_lambda_role_arn
-  get_rental_invoice_lambda_role_arn  = module.iam.get_rental_invoice_lambda_role_arn
-  get_user_profile_lambda_role_arn    = module.iam.get_user_profile_lambda_role_arn
-  gmail_store_tokens_lambda_role_arn  = module.iam.gmail_store_tokens_lambda_role_arn
+  wallenstam_lambda_role_arn           = module.iam.wallenstam_lambda_role_arn
+  signup_lambda_role_arn               = module.iam.signup_lambda_role_arn
+  delete_user_lambda_role_arn          = module.iam.delete_user_lambda_role_arn
+  get_rental_invoices_lambda_role_arn  = module.iam.get_rental_invoices_lambda_role_arn
+  get_rental_invoice_lambda_role_arn   = module.iam.get_rental_invoice_lambda_role_arn
+  get_user_profile_lambda_role_arn     = module.iam.get_user_profile_lambda_role_arn
+  gmail_store_tokens_lambda_role_arn   = module.iam.gmail_store_tokens_lambda_role_arn
+  fetch_retail_invoices_lambda_role_arn = module.iam.fetch_retail_invoices_lambda_role_arn
+  vendor_config_table_name             = aws_dynamodb_table.vendor_config.name
 }

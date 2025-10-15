@@ -14,6 +14,11 @@ variable "lambda_fetch_rental_invoices" {
   description = "The lambda function for fetching all invoices"
 }
 
+variable "lambda_fetch_retail_invoices" {
+  type        = string
+  description = "The lambda function for fetching retail invoices from Gmail"
+}
+
 variable "lambda_fetch_latest_rental_invoice" {
   type        = string
   description = "The lambda function for fetching the latest invoice from the email inbox"
@@ -166,4 +171,14 @@ variable "get_user_profile_lambda_role_arn" {
 variable "gmail_store_tokens_lambda_role_arn" {
   type        = string
   description = "The ARN of the gmail store tokens lambda role"
+}
+
+variable "fetch_retail_invoices_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the fetch retail invoices lambda role"
+}
+
+variable "vendor_config_table_name" {
+  type        = string
+  description = "The name of the VendorConfig DynamoDB table"
 }

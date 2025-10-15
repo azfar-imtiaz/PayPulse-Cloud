@@ -208,3 +208,48 @@ def delete_user_invoices(dynamodb_table, user_id: str):
         logging.info(f"{len(invoices)} invoices deleted for user '{user_id}'!")
     except ClientError as e:
         raise DatabaseError(f"Error deleting invoices for '{user_id}'") from e
+
+
+def get_active_vendors(vendor_config_table) -> list:
+    """
+    Scan VendorConfig table for all active vendors
+
+    Args:
+        vendor_config_table: DynamoDB table resource for VendorConfig
+
+    Returns:
+        List of vendor configurations (dictionaries)
+    """
+    try:
+        response = vendor_config_table.scan(
+            FilterExpression=Attr('active').eq(True)
+        )
+        vendors = response.get('Items', [])
+        logging.info(f"Found {len(vendors)} active vendors")
+        return vendors
+    except ClientError as e:
+        raise DatabaseError("Error retrieving active vendors from VendorConfig") from e
+
+
+def update_last_retail_invoice_fetch(users_table, user_id: str) -> None:
+    """
+    Update user's last_retail_invoice_fetch timestamp to current time
+
+    Args:
+        users_table: DynamoDB table resource for Users
+        user_id: User ID
+    """
+    try:
+        current_timestamp = datetime.now(timezone.utc).isoformat()
+
+        users_table.update_item(
+            Key={'UserID': user_id},
+            UpdateExpression='SET last_retail_invoice_fetch = :timestamp',
+            ExpressionAttributeValues={
+                ':timestamp': current_timestamp
+            }
+        )
+
+        logging.info(f"Updated last_retail_invoice_fetch for user {user_id}: {current_timestamp}")
+    except ClientError as e:
+        raise DatabaseError(f"Error updating last_retail_invoice_fetch for user {user_id}") from e

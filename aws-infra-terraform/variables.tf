@@ -215,6 +215,12 @@ variable "lambda_gmail_store_tokens" {
   default     = "gmail_store_tokens"
 }
 
+variable "lambda_fetch_retail_invoices" {
+  type        = string
+  description = "The lambda function for fetching retail invoices from Gmail"
+  default     = "fetch_retail_invoices"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"
