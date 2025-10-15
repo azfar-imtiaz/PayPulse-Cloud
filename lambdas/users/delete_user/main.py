@@ -5,7 +5,7 @@ import logging
 
 from utils.jwt_utils import get_user_id_from_token
 from utils.s3_utils import delete_user_folder_in_s3
-from utils.dynamodb_utils import delete_user_invoices, delete_user_in_dynamodb
+from utils.dynamodb_utils import delete_user_invoices, delete_user_in_dynamodb, delete_user_retail_invoices, delete_retail_invoice_details
 from utils.secretsmanager_utils import delete_email_credentials
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, \
@@ -21,8 +21,30 @@ INVOICES_TABLE = os.environ['INVOICES_TABLE']
 BUCKET_NAME = os.environ['BUCKET_NAME']
 JWT_SECRET = os.environ['JWT_SECRET']
 
+# Retail invoice table names
+RETAIL_INVOICES_TABLE = os.environ['RETAIL_INVOICES_TABLE']
+FOOD_DELIVERY_INVOICES_TABLE = os.environ['FOOD_DELIVERY_INVOICES_TABLE']
+CLOTHING_INVOICES_TABLE = os.environ['CLOTHING_INVOICES_TABLE']
+TECHNOLOGY_INVOICES_TABLE = os.environ['TECHNOLOGY_INVOICES_TABLE']
+SUBSCRIPTION_INVOICES_TABLE = os.environ['SUBSCRIPTION_INVOICES_TABLE']
+GROCERY_INVOICES_TABLE = os.environ['GROCERY_INVOICES_TABLE']
+MISC_UTILITY_INVOICES_TABLE = os.environ['MISC_UTILITY_INVOICES_TABLE']
+MISC_INVOICES_TABLE = os.environ['MISC_INVOICES_TABLE']
+
 users_table = dynamodb.Table(USERS_TABLE)
 invoices_table = dynamodb.Table(INVOICES_TABLE)
+retail_invoices_table = dynamodb.Table(RETAIL_INVOICES_TABLE)
+
+# Create detail tables dictionary
+detail_tables = {
+    'FoodDeliveryInvoices': dynamodb.Table(FOOD_DELIVERY_INVOICES_TABLE),
+    'ClothingInvoices': dynamodb.Table(CLOTHING_INVOICES_TABLE),
+    'TechnologyInvoices': dynamodb.Table(TECHNOLOGY_INVOICES_TABLE),
+    'SubscriptionInvoices': dynamodb.Table(SUBSCRIPTION_INVOICES_TABLE),
+    'GroceryInvoices': dynamodb.Table(GROCERY_INVOICES_TABLE),
+    'MiscUtilityInvoices': dynamodb.Table(MISC_UTILITY_INVOICES_TABLE),
+    'MiscInvoices': dynamodb.Table(MISC_INVOICES_TABLE)
+}
 
 
 def lambda_handler(event, context):
@@ -30,8 +52,16 @@ def lambda_handler(event, context):
         auth_header = event['headers'].get('authorization')
         user_id = get_user_id_from_token(auth_header, JWT_SECRET)
 
-        # delete all invoices for this user in the RentalInvoices table
+        # delete all rental invoices for this user in the RentalInvoices table
         delete_user_invoices(invoices_table, user_id=user_id)
+
+        # delete all retail invoices for this user
+        # First delete from RetailInvoices table and get invoice IDs
+        invoice_ids = delete_user_retail_invoices(retail_invoices_table, user_id=user_id)
+
+        # Then delete from all detail tables using the invoice IDs
+        if invoice_ids:
+            delete_retail_invoice_details(detail_tables, invoice_ids)
 
         # delete secrets for this user
         delete_email_credentials(secrets_manager, user_id=user_id)

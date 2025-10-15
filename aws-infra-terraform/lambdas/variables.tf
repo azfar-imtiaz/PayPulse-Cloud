@@ -182,3 +182,44 @@ variable "vendor_config_table_name" {
   type        = string
   description = "The name of the VendorConfig DynamoDB table"
 }
+
+# Retail invoice table names
+variable "retail_invoices_table_name" {
+  type        = string
+  description = "The name of the retail invoices DynamoDB table"
+}
+
+variable "food_delivery_invoices_table_name" {
+  type        = string
+  description = "The name of the food delivery invoices DynamoDB table"
+}
+
+variable "clothing_invoices_table_name" {
+  type        = string
+  description = "The name of the clothing invoices DynamoDB table"
+}
+
+variable "technology_invoices_table_name" {
+  type        = string
+  description = "The name of the technology invoices DynamoDB table"
+}
+
+variable "subscription_invoices_table_name" {
+  type        = string
+  description = "The name of the subscription invoices DynamoDB table"
+}
+
+variable "grocery_invoices_table_name" {
+  type        = string
+  description = "The name of the grocery invoices DynamoDB table"
+}
+
+variable "misc_utility_invoices_table_name" {
+  type        = string
+  description = "The name of the miscellaneous utility invoices DynamoDB table"
+}
+
+variable "misc_invoices_table_name" {
+  type        = string
+  description = "The name of the miscellaneous invoices DynamoDB table"
+}

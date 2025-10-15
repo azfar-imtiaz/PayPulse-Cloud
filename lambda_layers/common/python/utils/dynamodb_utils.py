@@ -253,3 +253,68 @@ def update_last_retail_invoice_fetch(users_table, user_id: str) -> None:
         logging.info(f"Updated last_retail_invoice_fetch for user {user_id}: {current_timestamp}")
     except ClientError as e:
         raise DatabaseError(f"Error updating last_retail_invoice_fetch for user {user_id}") from e
+
+
+def delete_user_retail_invoices(retail_invoices_table, user_id: str) -> list:
+    """
+    Delete all retail invoices for a user from the RetailInvoices table
+
+    Args:
+        retail_invoices_table: DynamoDB table resource for RetailInvoices
+        user_id: User ID
+
+    Returns:
+        List of invoice IDs that were deleted (needed for detail table cleanup)
+    """
+    try:
+        # Get all retail invoices for this user_id
+        response = retail_invoices_table.query(
+            KeyConditionExpression=Key('UserID').eq(user_id)
+        )
+        invoices = response['Items']
+        invoice_ids = []
+
+        # Delete all retail invoices one-by-one and collect invoice IDs
+        for item in invoices:
+            invoice_id = item['InvoiceID']
+            retail_invoices_table.delete_item(
+                Key={'UserID': user_id, 'InvoiceID': invoice_id}
+            )
+            invoice_ids.append(invoice_id)
+
+        logging.info(f"{len(invoices)} retail invoices deleted for user '{user_id}'!")
+        return invoice_ids
+    except ClientError as e:
+        raise DatabaseError(f"Error deleting retail invoices for '{user_id}'") from e
+
+
+def delete_retail_invoice_details(detail_tables_dict: Dict, invoice_ids: list) -> None:
+    """
+    Delete retail invoice details from all detail tables using invoice IDs
+
+    Args:
+        detail_tables_dict: Dictionary mapping table names to DynamoDB table resources
+        invoice_ids: List of invoice IDs to delete from detail tables
+    """
+    try:
+        total_deleted = 0
+        for table_name, table_resource in detail_tables_dict.items():
+            deleted_count = 0
+            for invoice_id in invoice_ids:
+                try:
+                    # Try to delete from this detail table (may not exist in all tables)
+                    table_resource.delete_item(
+                        Key={'InvoiceID': invoice_id}
+                    )
+                    deleted_count += 1
+                except ClientError as e:
+                    # If item doesn't exist, that's okay - not all invoices exist in all detail tables
+                    if e.response['Error']['Code'] != 'ResourceNotFoundException':
+                        logging.warning(f"Error deleting invoice {invoice_id} from {table_name}: {e}")
+
+            total_deleted += deleted_count
+            logging.info(f"Deleted {deleted_count} items from {table_name}")
+
+        logging.info(f"Total {total_deleted} detail records deleted across all retail invoice detail tables")
+    except Exception as e:
+        raise DatabaseError(f"Error deleting retail invoice details: {str(e)}") from e

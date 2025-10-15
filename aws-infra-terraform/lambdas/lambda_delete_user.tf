@@ -6,7 +6,7 @@ data "aws_s3_bucket_object" "delete_user_zip" {
 
 # === Delete-user lambda function ===
 resource "aws_lambda_function" "delete_user" {
-  description   = "This function is used to delete a user's account from PayPulse. This deletes the user's invoices from the RentalInvoices table, their secrets, their S3 folder, and finally their record from the Users table."
+  description   = "This function is used to delete a user's account from PayPulse. This deletes the user's rental invoices from the RentalInvoices table, retail invoices from RetailInvoices and all detail tables, their secrets, their S3 folder, and finally their record from the Users table."
   function_name = "delete_user"
   role          = var.delete_user_lambda_role_arn
   runtime       = var.python_runtime
@@ -17,10 +17,18 @@ resource "aws_lambda_function" "delete_user" {
 
   environment {
     variables = {
-      USERS_TABLE    = var.users_table_name
-      INVOICES_TABLE = var.rental_invoices_table_name
-      BUCKET_NAME    = var.invoices_bucket_name
-      JWT_SECRET     = var.jwt_secret_version_secret_string
+      USERS_TABLE                       = var.users_table_name
+      INVOICES_TABLE                    = var.rental_invoices_table_name
+      BUCKET_NAME                       = var.invoices_bucket_name
+      JWT_SECRET                        = var.jwt_secret_version_secret_string
+      RETAIL_INVOICES_TABLE             = var.retail_invoices_table_name
+      FOOD_DELIVERY_INVOICES_TABLE      = var.food_delivery_invoices_table_name
+      CLOTHING_INVOICES_TABLE           = var.clothing_invoices_table_name
+      TECHNOLOGY_INVOICES_TABLE         = var.technology_invoices_table_name
+      SUBSCRIPTION_INVOICES_TABLE       = var.subscription_invoices_table_name
+      GROCERY_INVOICES_TABLE            = var.grocery_invoices_table_name
+      MISC_UTILITY_INVOICES_TABLE       = var.misc_utility_invoices_table_name
+      MISC_INVOICES_TABLE               = var.misc_invoices_table_name
     }
   }
 

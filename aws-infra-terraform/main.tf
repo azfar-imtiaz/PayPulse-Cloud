@@ -91,4 +91,14 @@ module "lambdas" {
   gmail_store_tokens_lambda_role_arn   = module.iam.gmail_store_tokens_lambda_role_arn
   fetch_retail_invoices_lambda_role_arn = module.iam.fetch_retail_invoices_lambda_role_arn
   vendor_config_table_name             = aws_dynamodb_table.vendor_config.name
+
+  # Retail invoice table names
+  retail_invoices_table_name        = aws_dynamodb_table.retail_invoices.name
+  food_delivery_invoices_table_name = aws_dynamodb_table.food_delivery_invoices.name
+  clothing_invoices_table_name      = aws_dynamodb_table.clothing_invoices.name
+  technology_invoices_table_name    = aws_dynamodb_table.technology_invoices.name
+  subscription_invoices_table_name  = aws_dynamodb_table.subscription_invoices.name
+  grocery_invoices_table_name       = aws_dynamodb_table.grocery_invoices.name
+  misc_utility_invoices_table_name  = aws_dynamodb_table.misc_utility_invoices.name
+  misc_invoices_table_name          = aws_dynamodb_table.misc_invoices.name
 }
