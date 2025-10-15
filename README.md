@@ -1,7 +1,7 @@
 # PayPulse-Cloud
 This repository contains the Cloud backend for the PayPulse app. The backend for this app is developed in AWS and maintained using Terraform.
 
-PayPulse is an iOS app that fetches invoices from a Gmail inbox using OAuth 2.0 authentication, parses them, and presents invoice information and statistics. 
+PayPulse is an iOS app that fetches both rental and retail invoices from a Gmail inbox using OAuth 2.0 authentication, parses them, and presents invoice information and statistics. 
 The GitHub link to the PayPulse app can be found [here](https://github.com/azfar-imtiaz/PayPulse).
 
 ## Cloud Architecture Diagram
@@ -34,6 +34,9 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │           ├── requirements.txt
 │       ├── send_invoice_notification
 │           ├── main.py
+│           ├── requirements.txt
+│       ├── fetch_retail_invoices
+│           ├── lambda_function.py
 │           ├── requirements.txt
 │   ├── users
 │       ├── login_user
@@ -114,7 +117,8 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │   │   ├── lambda_get_rental_invoice.tf   # Get rental invoice lambda function
 │   │   ├── lambda_get_user_profile.tf     # Get user profile lambda function
 │   │   ├── lambda_gmail_store_tokens.tf   # Gmail store tokens lambda function
-│   │   └── lambda_layers.tf               # Lambda layers (utils, JWT, bcrypt)
+│   │   ├── lambda_fetch_retail_invoices.tf # Fetch retail invoices lambda function
+│   │   └── lambda_layers.tf               # Lambda layers (utils, JWT, bcrypt, Google API)
 │   └── terraform.tfstate        	    # Terraform state file (not in repo)
 └── README.md                	            # You're here!
 ```
@@ -162,18 +166,35 @@ This infrastructure consists of two S3 buckets:
 
 #### - Rental invoices bucket
 
-This bucket contains the rental invoices that are fetched from the email inbox and uploaded. The path to the invoices is structured like this:
+This bucket contains both rental and retail invoices that are fetched from the email inbox and uploaded. The path to the invoices is structured like this:
+
+**Rental invoices (PDF):**
 ```
-rental-invoices-bucket/rental-invoices/user_id/invoice_0001.pdf
+rental-invoices-bucket/invoices/user_id/rental/invoice_0001.pdf
 ```
 
-Here, the user ID is generated dynamically, which happens when a user signs up. The user ID is a UUID prefixed with `user_`-
+**Retail invoices (HTML):**
+```
+rental-invoices-bucket/invoices/user_id/retail/{sub_type}/{vendor}_{date}_{hash}.html
+```
+
+Where `{sub_type}` can be:
+- `food-delivery` - Restaurant and food delivery orders
+- `clothing` - Clothing and fashion purchases
+- `technology` - Electronics and tech products
+- `subscriptions` - Streaming services, memberships, etc.
+- `grocery` - Grocery store purchases
+- `utility` - Utility bills (electricity, water, etc.)
+- `miscellaneous` - Other retail purchases
+
+Here, the user ID is generated dynamically, which happens when a user signs up. The user ID is a UUID prefixed with `user_`.
 
 #### - Lambda functions bucket
 
 This bucket is for containing the source code of the following lambda functions:
-- Ingest all invoices
-- Ingest latest invoice
+- Ingest all rental invoices
+- Ingest latest rental invoice
+- Ingest retail invoices
 - Send invoice notification
 - Get invoice
 - Get invoices
@@ -197,11 +218,12 @@ There are several lambda functions, and some of them are linked, in a way. The e
 |          Sign up          |        `signup_user`        | API Gateway | This function allows a new user to sign up to PayPulse                                                                   | Zip upload to S3 bucket |
 |       Get user profile    |     `get_user_profile`      | API Gateway | This function retrieves the user profile information (name, email, created date, Gmail connection status) for the authenticated user             | Zip upload to S3 bucket |
 |    Store Gmail tokens     |   `gmail_store_tokens`      | API Gateway | This function stores OAuth 2.0 tokens received from iOS app for Gmail API access                                        | Zip upload to S3 bucket |
-|    Ingest all invoices    |      `fetch_invoices`       | API Gateway | This function fetches all rental invoices from the email inbox                                                           | Zip upload to S3 bucket |
-|   Ingest latest invoice   |   `fetch_latest_invoice`    | EventBridge (every weekday 8:30 AM) | This function fetches the rental invoice for the current month, if available                                             | Zip upload to S3 bucket |
-|       Parse invoice       |       `parse_invoice`       | S3 (rental invoice upload) | This function parses a rental invoice and stores the information in DynamoDB                                             | Docker image pushed to ECR repository |
+|    Ingest all rental invoices    |      `fetch_invoices`       | API Gateway | This function fetches all rental invoices (PDF) from the email inbox                                                           | Zip upload to S3 bucket |
+|   Ingest latest rental invoice   |   `fetch_latest_invoice`    | EventBridge (every weekday 8:30 AM) | This function fetches the rental invoice for the current month, if available                                             | Zip upload to S3 bucket |
+|    Ingest retail invoices    |   `fetch_retail_invoices`   | API Gateway | This function fetches retail invoices (HTML) from Gmail based on active vendor configurations. Supports custom date ranges                                        | Zip upload to S3 bucket |
+|       Parse invoice       |       `parse_invoice`       | S3 (rental invoice upload) | This function parses a rental invoice PDF and stores the information in DynamoDB                                             | Docker image pushed to ECR repository |
 |        Get invoice        |    `get_rental_invoice`     | API Gateway | This function retrieves the full invoice details for a given invoice ID. **This is not being used in the app right now** | Zip upload to S3 bucket |
-|       Get invoices        |    `get_rental_invoices`    | API Gateway | This function retrieves and returns all invoices for a logged-in user                                                    | Zip upload to S3 bucket |
+|       Get invoices        |    `get_rental_invoices`    | API Gateway | This function retrieves and returns all rental invoices for a logged-in user                                                    | Zip upload to S3 bucket |
 |        Delete user        |        `delete_user`        | API Gateway | This function deletes all data for a given user in PayPulse Cloud                                                        | Zip upload to S3 bucket |
 | Send invoice notification | `send_invoice_notification` | DynamoDB stream | This function sends an email and iOS notification everytime a new rental invoice is parsed                               | Zip upload to S3 bucket |
 
@@ -231,17 +253,18 @@ Everytime there is a change or addition to the common utility functions, I gener
 
 The following endpoints are deployed in PayPulseAPI via API Gateway, each of them linked to their corresponding lambda functions:
 
-|       Endpoint       |   Lambda function    |
-|:--------------------:|:--------------------:|
-|        Login         |      login_user      |
-|       Sign up        |     signup_user      |
-|   Get user profile   |   get_user_profile   |
-|  Store Gmail tokens  |  gmail_store_tokens  |
-|  Fetch all invoices  |    fetch_invoices    |
-| Fetch latest invoice | fetch_latest_invoice |
-|     Get invoices     | get_rental_invoices  |
-| Get invoice details  |  get_rental_invoice  |
-|     Delete user      |     delete_user      |
+|         Endpoint         |     Lambda function      |
+|:------------------------:|:------------------------:|
+|          Login           |       login_user         |
+|         Sign up          |      signup_user         |
+|     Get user profile     |    get_user_profile      |
+|    Store Gmail tokens    |   gmail_store_tokens     |
+| Fetch all rental invoices|     fetch_invoices       |
+|Fetch latest rental invoice| fetch_latest_invoice    |
+| Fetch retail invoices    | fetch_retail_invoices    |
+|      Get invoices        |  get_rental_invoices     |
+|   Get invoice details    |   get_rental_invoice     |
+|       Delete user        |      delete_user         |
 
 The routes are structured like this:
 
@@ -255,12 +278,17 @@ The routes are structured like this:
 │       ├── /gmail-tokens
 │           ├── POST
 │   ├── /invoices
-│       ├── {type}
-│               ├── GET
-│           ├── {invoice_id}
-│               ├── GET
+│       ├── /rental
+│           ├── GET                        # Get all rental invoices
+│           ├── /{invoice_id}
+│               ├── GET                    # Get single rental invoice
 │           ├── /ingest
-│               ├── POST
+│               ├── POST                   # Fetch all rental invoices
+│           ├── /ingest/latest
+│               ├── POST                   # Fetch latest rental invoice
+│       ├── /retail
+│           ├── /ingest
+│               ├── POST                   # Fetch retail invoices (optional date range in body)
 │   ├── /user
 │       ├── /me
 │           ├── GET
@@ -338,17 +366,50 @@ I am using DynamoDB for storing parsed invoice data, as well as user information
 Later, I plan on expanding the infrastructure by parsing more invoices of different kinds. More tables will be added here then.
 
 #### Tables
+
+**Rental Invoices:**
+
 **1. RentalInvoices**
-- Partition key: `InvoiceID`
+- Partition key: `UserID`
+- Sort key: `InvoiceID`
 - GSI: `due_date_year-due_date_month-index`
 - Billing mode: Provisioned
 - Stream: New and old images
 - Autoscaling enabled (1-10 units, 70% target)
 
-**2. Users**
+**Retail Invoices:**
+
+**2. RetailInvoices** (Base table)
+- Partition key: `UserID`
+- Sort key: `InvoiceID`
+- GSI-1: `invoice_date-index`
+- GSI-2: `sub_type-invoice_date-index`
+- Billing mode: Pay per request
+- Stream: Enabled
+- Contains: vendor_name, sub_type, total_amount, currency, invoice_date, s3_path, etc.
+
+**3-9. Retail Invoice Detail Tables**
+- FoodDeliveryInvoices
+- ClothingInvoices
+- TechnologyInvoices
+- SubscriptionInvoices
+- GroceryInvoices
+- MiscellaneousUtilityInvoices
+- MiscellaneousInvoices
+
+Each uses `InvoiceID` as partition key, PAY_PER_REQUEST billing
+
+**10. VendorConfig**
+- Partition key: `vendor_id`
+- Billing mode: Pay per request
+- Contains: vendor_name, invoice_sub_type, email_patterns, subject_keywords, parser_type, active status, etc.
+- Purpose: Configuration for automated retail invoice fetching
+
+**11. Users**
 - Partition key: `UserID`
 - GSI: `Email-index`
 - Billing mode: Pay per request
+- Contains: user info and `last_retail_invoice_fetch` timestamp for incremental fetching
 
 ### IAM
 
@@ -371,21 +432,48 @@ This is for configuring push notifications for iOS devices.
 
 ### CloudWatch
 I am currently using CloudWatch for monitoring for the lambda functions. Currently, there are the following log groups, each corresponding to the equivalent lambda function:
-- `/aws/apigateway/PayPulseAPI`        # this is for the sign-up lambda function
+- `/aws/apigateway/PayPulseAPI`        # API Gateway logs
 - `/aws/lambda/login_user`
-- `/aws/lambda/fetch_invoices`
-- `/aws/lambda/fetch_latest_invoice`
+- `/aws/lambda/signup_user`
+- `/aws/lambda/fetch_invoices`         # Rental invoices
+- `/aws/lambda/fetch_latest_invoice`   # Rental invoices
+- `/aws/lambda/fetch_retail_invoices`  # Retail invoices
 - `/aws/lambda/parse_invoice`
 - `/aws/lambda/get_rental_invoice`
 - `/aws/lambda/get_rental_invoices`
 - `/aws/lambda/get_user_profile`
+- `/aws/lambda/gmail_store_tokens`
 - `/aws/lambda/delete_user`
 - `/aws/lambda/send_invoice_notification`
 
+## Recent Updates
+
+### Retail Invoice Support (October 2025)
+✅ **Implemented retail invoice fetching infrastructure:**
+- Created 8 new DynamoDB tables for retail invoices (1 base table + 7 detail tables)
+- Implemented VendorConfig table for vendor-based invoice fetching
+- Created `fetch_retail_invoices` Lambda function with:
+  - Vendor-based Gmail search using configurable email patterns and subject keywords
+  - Custom date range support via request body
+  - Incremental fetching using `last_retail_invoice_fetch` timestamp
+  - Duplicate detection to prevent re-processing
+- Updated S3 structure to support 7 retail invoice sub-types (food-delivery, clothing, technology, subscriptions, grocery, utility, miscellaneous)
+- Added proper IAM policies including `s3:ListBucket` for HeadObject operations
+- Created API Gateway endpoint: `POST /v1/invoices/retail/ingest`
+
+**Supported Retail Categories:**
+- Food Delivery (restaurants, food delivery services)
+- Clothing (fashion, apparel purchases)
+- Technology (electronics, tech products)
+- Subscriptions (streaming services, memberships)
+- Grocery (supermarket purchases)
+- Utility (electricity, water, internet bills)
+- Miscellaneous (other retail purchases)
+
 ## Next Steps
-- Some IAM policies are currently AWS-managed - migrate them to Terraform-managed
-- Move SNS subscription management to Terraform
-    - I would like to define a flow where, whenever a new user installs the app and signs up using their Gmail account, they automatically get configured for push notifications. Right now, this process has to be configured manually
-- Add CI/CD workflow
-    - I would like to set up a flow where, whenever there any updates or additions to the lambda functions are pushed, it triggers a pipeline which tests the function, and then deploys it
-    - GitHub Actions can be used for this
+- **Retail Invoice Parsing**: Implement HTML parsers for each retail invoice sub-type
+- **Vendor Management**: Migrate vendor logos to Terraform-managed S3 bucket
+- **API Expansion**: Add GET endpoints for retail invoices (similar to rental endpoints)
+- **IAM Migration**: Move AWS-managed policies to Terraform-managed
+- **SNS Automation**: Auto-subscribe users to notifications on signup
+- **CI/CD Pipeline**: Set up GitHub Actions for automated testing and deployment
