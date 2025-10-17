@@ -2,7 +2,6 @@ import os
 import boto3
 import logging
 from uuid import uuid4
-from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Dict, Any
 
@@ -108,8 +107,18 @@ def insert_retail_invoice_to_dynamodb(invoice_data: Dict[str, Any], user_id: str
         # Use fallback date if invoice_date is missing or None
         invoice_date = invoice_data.get('invoice_date')
         if not invoice_date:
-            invoice_date = fallback_date
-            logging.info(f"Using S3 last-modified date as fallback for invoice_date: {fallback_date}")
+            # try to get the date from S3 path
+            try:
+                if s3_path.find("/") < 0:
+                    raise ValueError
+                filename = s3_path.split('/')[-1]       # get filename
+                filename_date = filename.split("_")[-2]     # get date (sandwiched between vendor name and hash)
+                datetime.strptime(filename_date, '%Y-%m-%d')    # validate date structure
+                invoice_date = filename_date
+                logging.info(f"Using date from S3 path: {filename_date}")
+            except (ValueError, IndexError):
+                invoice_date = fallback_date
+                logging.info(f"Using S3 last-modified date as fallback for invoice_date: {fallback_date}")
         else:
             logging.info(f"Using parsed invoice_date: {invoice_date}")
 
