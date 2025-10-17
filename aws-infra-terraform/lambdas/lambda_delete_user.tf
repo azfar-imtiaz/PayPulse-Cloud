@@ -6,7 +6,7 @@ data "aws_s3_bucket_object" "delete_user_zip" {
 
 # === Delete-user lambda function ===
 resource "aws_lambda_function" "delete_user" {
-  description   = "This function is used to delete a user's account from PayPulse. This deletes the user's rental invoices from the RentalInvoices table, retail invoices from RetailInvoices and all detail tables, their secrets, their S3 folder, and finally their record from the Users table."
+  description   = "This function is used to delete a user's account from PayPulse. This deletes the user's invoices and information from DynamoDB tables, their secrets, and their invoices in S3."
   function_name = "delete_user"
   role          = var.delete_user_lambda_role_arn
   runtime       = var.python_runtime

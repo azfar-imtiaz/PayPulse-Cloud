@@ -66,6 +66,7 @@ module "lambdas" {
   lambda_get_rental_invoice               = var.lambda_get_rental_invoice
   lambda_get_user_profile                 = var.lambda_get_user_profile
   lambda_gmail_store_tokens               = var.lambda_gmail_store_tokens
+  lambda_parse_retail_invoice             = var.lambda_parse_retail_invoice
   invoices_table                          = var.invoices_table
   rental_invoice_email                    = var.rental_invoice_email
   rental_invoice_email_subject            = var.rental_invoice_email_subject
@@ -90,7 +91,9 @@ module "lambdas" {
   get_user_profile_lambda_role_arn     = module.iam.get_user_profile_lambda_role_arn
   gmail_store_tokens_lambda_role_arn   = module.iam.gmail_store_tokens_lambda_role_arn
   fetch_retail_invoices_lambda_role_arn = module.iam.fetch_retail_invoices_lambda_role_arn
+  parse_retail_invoice_lambda_role_arn = module.iam.parse_retail_invoice_lambda_role_arn
   vendor_config_table_name             = aws_dynamodb_table.vendor_config.name
+  gemini_api_key_secret_string         = aws_secretsmanager_secret_version.gemini_api_key_value.secret_string
 
   # Retail invoice table names
   retail_invoices_table_name        = aws_dynamodb_table.retail_invoices.name

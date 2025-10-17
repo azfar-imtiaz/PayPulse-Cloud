@@ -69,6 +69,11 @@ variable "lambda_gmail_store_tokens" {
   description = "The lambda function stores OAuth tokens received from iOS app"
 }
 
+variable "lambda_parse_retail_invoice" {
+  type        = string
+  description = "The lambda function for parsing retail invoice HTML using Gemini API"
+}
+
 # Table names
 variable "invoices_table" {
   type        = string
@@ -126,6 +131,12 @@ variable "google_oauth_client_id" {
   sensitive   = true
 }
 
+variable "gemini_api_key_secret_string" {
+  type        = string
+  description = "The Gemini API key for retail invoice parsing"
+  sensitive   = true
+}
+
 
 variable "sns_topic_arn" {
   type        = string
@@ -176,6 +187,11 @@ variable "gmail_store_tokens_lambda_role_arn" {
 variable "fetch_retail_invoices_lambda_role_arn" {
   type        = string
   description = "The ARN of the fetch retail invoices lambda role"
+}
+
+variable "parse_retail_invoice_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the parse retail invoice lambda role"
 }
 
 variable "vendor_config_table_name" {

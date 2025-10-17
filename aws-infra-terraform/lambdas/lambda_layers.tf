@@ -25,3 +25,10 @@ resource "aws_lambda_layer_version" "google_api_layer" {
   filename            = "../lambda_layers/google_api/google_api_layer.zip"
   source_code_hash    = filebase64sha256("../lambda_layers/google_api/google_api_layer.zip")
 }
+
+resource "aws_lambda_layer_version" "gemini_parsers_layer" {
+  layer_name          = "gemini-parsers-layer"
+  compatible_runtimes = ["python3.12"]
+  filename            = "../lambda_layers/gemini_parsers/gemini_parsers_layer.zip"
+  source_code_hash    = filebase64sha256("../lambda_layers/gemini_parsers/gemini_parsers_layer.zip")
+}

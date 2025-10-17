@@ -64,15 +64,26 @@ resource "aws_s3_bucket_policy" "lambda_bucket_policy" {
   })
 }
 
-# Defining trigger for PDF upload on S3 bucket for parse_invoice lambda function
+# Defining triggers for invoice uploads on S3 bucket
 resource "aws_s3_bucket_notification" "invoice_upload_trigger" {
   bucket = aws_s3_bucket.rental_invoices.id
 
+  # Trigger for PDF upload (rental invoices)
+  # TODO: This needs to be updated to run only on invoices inside the "rental" folder
   lambda_function {
     lambda_function_arn = module.lambdas.parse_invoice_arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "invoices/"
     filter_suffix       = ".pdf"
+  }
+
+  # Trigger for HTML upload (retail invoices)
+  # TODO: This needs to be updated to run only on invoices inside the "retail" folder
+  lambda_function {
+    lambda_function_arn = module.lambdas.parse_retail_invoice_arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "invoices/"
+    filter_suffix       = ".html"
   }
 
   depends_on = [module.lambdas]

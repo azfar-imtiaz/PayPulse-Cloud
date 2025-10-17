@@ -119,6 +119,16 @@ output "fetch_retail_invoices_invoke_arn" {
   value       = aws_lambda_function.fetch_retail_invoices.invoke_arn
 }
 
+output "parse_retail_invoice_function_name" {
+  description = "Name of the parse retail invoice lambda function"
+  value       = aws_lambda_function.parse_retail_invoice.function_name
+}
+
+output "parse_retail_invoice_arn" {
+  description = "ARN of the parse retail invoice lambda function"
+  value       = aws_lambda_function.parse_retail_invoice.arn
+}
+
 # Lambda layers outputs
 output "utils_layer_arn" {
   description = "ARN of the utils lambda layer"

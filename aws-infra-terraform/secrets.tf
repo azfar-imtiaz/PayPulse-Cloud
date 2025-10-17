@@ -17,3 +17,14 @@ resource "aws_secretsmanager_secret_version" "google_oauth_client_id_value" {
   secret_id     = aws_secretsmanager_secret.google_oauth_client_id.id
   secret_string = var.google_oauth_client_id
 }
+
+# Gemini API key for retail invoice parsing
+resource "aws_secretsmanager_secret" "gemini_api_key" {
+  name        = "gemini-api-key"
+  description = "API key for Gemini Flash API used in retail invoice parsing"
+}
+
+resource "aws_secretsmanager_secret_version" "gemini_api_key_value" {
+  secret_id     = aws_secretsmanager_secret.gemini_api_key.id
+  secret_string = var.gemini_api_key
+}

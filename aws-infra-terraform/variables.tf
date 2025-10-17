@@ -126,6 +126,11 @@ variable "google_oauth_client_id" {
   sensitive   = true
 }
 
+variable "gemini_api_key" {
+  description = "API key for Gemini Flash API used in retail invoice parsing."
+  type        = string
+  sensitive   = true
+}
 
 # EventBridge
 
@@ -219,6 +224,12 @@ variable "lambda_fetch_retail_invoices" {
   type        = string
   description = "The lambda function for fetching retail invoices from Gmail"
   default     = "fetch_retail_invoices"
+}
+
+variable "lambda_parse_retail_invoice" {
+  type        = string
+  description = "The lambda function for parsing retail invoice HTML using Gemini API"
+  default     = "parse_retail_invoice"
 }
 
 variable "rental_invoice_email" {

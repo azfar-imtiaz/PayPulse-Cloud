@@ -1,0 +1,4 @@
+# This Lambda function uses layers for its dependencies:
+# - utils-layer: Common utilities and DynamoDB functions
+# - gemini-parsers-layer: Gemini API parsers for retail invoices
+# No additional requirements needed
