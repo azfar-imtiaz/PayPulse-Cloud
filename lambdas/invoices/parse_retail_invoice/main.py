@@ -4,6 +4,7 @@ import logging
 from uuid import uuid4
 from datetime import datetime, timezone
 from typing import Dict, Any
+from urllib.parse import unquote_plus
 
 from parser_factory import get_parser_for_subtype, extract_subtype_from_s3_path, extract_vendor_from_filename
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
@@ -177,9 +178,14 @@ def lambda_handler(event, context):
         # Extract S3 event details
         s3_event = event['Records'][0]['s3']
         bucket = s3_event['bucket']['name']
-        s3_key = s3_event['object']['key']
+        s3_key_raw = s3_event['object']['key']
+
+        # URL-decode the S3 key to handle special characters like & in filenames
+        s3_key = unquote_plus(s3_key_raw)
 
         logging.info(f"Processing retail invoice: {bucket}/{s3_key}")
+        if s3_key != s3_key_raw:
+            logging.info(f"URL-decoded S3 key from: {s3_key_raw}")
 
         # Extract metadata from S3 path
         user_id = extract_user_id_from_s3_path(s3_key)
