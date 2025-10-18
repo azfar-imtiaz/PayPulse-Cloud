@@ -217,6 +217,32 @@ HTML Invoice:
                 items_desc=items_desc,
                 header_info=header_info
             )
+        elif vendor_name.lower() == "cdon":
+            vendor_desc = "online Nordic marketplace"
+            is_email_in_swedish = True
+            swedish_instructions = """This email is in Swedish, so look for the following keywords:
+    - Orderdatum = Order date (YYYY-MM-DD)
+    - Orderstatus = Order status
+    - Ordernummer = Order number
+    - Antal varor = Amount/Quantity
+    - Betalningsalternativ = Payment method
+    - Fraktalternativ = Delivery information
+    - Frakt = Delivery fee
+    - Summa = Total
+    - moms = tax
+"""
+            items_desc = "electronics"
+            header_info = 'Look for "Tack för din beställning!" header.'
+
+            return self.__create_extraction_prompt(
+                email_content=email_content,
+                vendor_name=vendor_name,
+                vendor_desc=vendor_desc,
+                is_email_in_swedish=is_email_in_swedish,
+                swedish_instructions=swedish_instructions,
+                items_desc=items_desc,
+                header_info=header_info
+            )
         else:
             # Default prompt with no specific vendor instructions
             return self.__create_extraction_prompt(email_content=email_content, vendor_name=vendor_name)
