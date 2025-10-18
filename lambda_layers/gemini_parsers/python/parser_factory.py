@@ -9,6 +9,7 @@ from parsers.base_parser import RetailInvoiceBaseParser
 from parsers.food_delivery_parser import FoodDeliveryParser
 from parsers.miscellaneous_parser import MiscellaneousParser
 from parsers.technology_parser import TechnologyParser
+from parsers.clothing_parser import ClothingParser
 
 
 def get_parser_for_subtype(sub_type: str, gemini_api_key: str) -> Optional[RetailInvoiceBaseParser]:
@@ -29,8 +30,8 @@ def get_parser_for_subtype(sub_type: str, gemini_api_key: str) -> Optional[Retai
         'food-delivery': FoodDeliveryParser,
         'miscellaneous': MiscellaneousParser,
         'technology': TechnologyParser,
+        'clothing': ClothingParser,
         # TODO: Add remaining parsers as they are implemented
-        # 'clothing': ClothingParser,
         # 'subscriptions': SubscriptionParser,
         # 'grocery': GroceryParser,
         # 'utility': UtilityParser,

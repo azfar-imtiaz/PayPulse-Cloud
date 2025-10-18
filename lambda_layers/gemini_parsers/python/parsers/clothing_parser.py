@@ -2,26 +2,26 @@ import json
 from .base_parser import RetailInvoiceBaseParser
 
 
-class MiscellaneousParser(RetailInvoiceBaseParser):
+class ClothingParser(RetailInvoiceBaseParser):
     """
-    Parser for miscellaneous invoices (general online orders, Amazon, etc.).
-    Handles vendors like Amazon.com, Amazon.se, and other general retailers.
+    Parser for clothing invoices (general online orders).
+    Handles vendors like Zalando, H&M etc.
     """
 
     def __init__(self, gemini_api_key: str):
         super().__init__(gemini_api_key=gemini_api_key)
         self.schema.update({
-            "category": "string",
-            "description": "string",
             "tax": "number",
+            "delivery_fee": "number",
+            "payment_method": "string",
             "items": [
                 {
                     "name": "string",
+                    "brand": "string",
                     "price": "number",
                     "quantity": "number"
                 }
-            ],
-            "notes": "string"
+            ]
         })
 
     def __generate_invoice_description(self, vendor_name: str, vendor_desc: str = None,
@@ -62,7 +62,7 @@ class MiscellaneousParser(RetailInvoiceBaseParser):
             '- For dates, use ISO 8601 format (invoice_date: YYYY-MM-DD)',
             '- For amounts, extract only the numeric value (no currency symbols)',
             '- For items array, include all ordered items with their name, price, and quantity',
-            '- If the item is a Kindle book, the item name should be the title of the book, and the category should be "Books"',
+            '- If the item does not mention the brand, use the vendor as the brand',
             '- If a field is not found in the invoice, use null for strings and 0 for numbers',
             '- In the notes field, mention any information about the product that you think is relevant. This is an optional field and can be left empty as well.',
             '- Ensure the JSON is valid and properly formatted',
@@ -87,7 +87,7 @@ class MiscellaneousParser(RetailInvoiceBaseParser):
             items_desc: A description of what the items in this invoice can be
             header_info: Information about the header below which the invoice information can be found
         """
-        prompt = f"""You are an expert at extracting structured information from invoices of miscellaneous items ordered online.
+        prompt = f"""You are an expert at extracting structured information from invoices of clothing items (such as jackets, shirts, shoes etc.) ordered online.
 
 {self.__generate_invoice_description(vendor_name, vendor_desc, is_email_in_swedish, items_desc, header_info)}
 
@@ -107,34 +107,54 @@ HTML Invoice:
 
     def create_extraction_prompt(self, email_content: str, vendor_name: str) -> str:
         """
-        Create vendor-specific extraction prompt for miscellaneous invoices.
+        Create vendor-specific extraction prompt for clothing invoices.
 
         Args:
             email_content: HTML content of the invoice email
-            vendor_name: Name of the vendor (e.g., 'amazon.com', 'amazon.se')
+            vendor_name: Name of the vendor (e.g., 'zalando', 'h&m')
 
         Returns:
             Formatted prompt for Gemini API
         """
-        if vendor_name.lower() == "amazon.se":
-            vendor_desc = "online marketplace"
+        if vendor_name.lower() == "zalando":
+            vendor_desc = "European online platform for buying fashion and lifestyle products"
             is_email_in_swedish = False
+            items_desc = "clothing items"
 
             return self.__create_extraction_prompt(
                 email_content=email_content,
                 vendor_name=vendor_name,
                 vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish
+                is_email_in_swedish=is_email_in_swedish,
+                items_desc=items_desc
             )
-        elif vendor_name.lower() == "amazon.com":
-            vendor_desc = "online marketplace"
-            is_email_in_swedish = False
+        elif vendor_name.lower() == "fotproffsen":
+            vendor_desc = "online Swedish marketplace for shoes"
+            is_email_in_swedish = True
+            swedish_instructions = """This email is in Swedish, so look for the following keywords:
+    - Beställningsnummer = Order number
+    - Beställningsdatum = The date (YYYY-MM-DD) and time (HH:MM:SS) of the order
+    - Betalsätt = Payment method
+    - Art.nr = Article number
+    - Storlek = Size
+    - Antal = Amount/Quantity
+    - Delsumma = Sub-total
+    - Fraktkostnad = Delivery fee
+    - Avdragna rabatter = Discount
+    - Att betala = To pay / Total
+    - moms = Tax
+"""
+            items_desc = "shoes"
+            header_info = 'Look for "Din beställning" header.'
 
             return self.__create_extraction_prompt(
                 email_content=email_content,
                 vendor_name=vendor_name,
                 vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish
+                is_email_in_swedish=is_email_in_swedish,
+                swedish_instructions=swedish_instructions,
+                items_desc=items_desc,
+                header_info=header_info
             )
         else:
             # Default prompt with no specific vendor instructions
