@@ -177,9 +177,26 @@ def get_email_content(service, message_id: str) -> Message:
             format='raw'
         ).execute()
         
-        # Decode the raw message
+        # Decode the raw message with robust encoding handling
         import base64
-        raw_email = base64.urlsafe_b64decode(message['raw']).decode('utf-8')
+        raw_email_bytes = base64.urlsafe_b64decode(message['raw'])
+
+        # Try multiple encodings to handle international characters
+        encodings_to_try = ['utf-8', 'latin-1', 'windows-1252', 'iso-8859-1']
+        raw_email = None
+
+        for encoding in encodings_to_try:
+            try:
+                raw_email = raw_email_bytes.decode(encoding)
+                logging.info(f"Successfully decoded email using {encoding} encoding")
+                break
+            except UnicodeDecodeError:
+                continue
+
+        if raw_email is None:
+            # Fallback: decode with errors='replace' to avoid crashes
+            raw_email = raw_email_bytes.decode('utf-8', errors='replace')
+            logging.warning(f"Used UTF-8 with error replacement for message {message_id}")
         
         # Parse email - this returns the same Message object format that IMAP used
         email_message = email.message_from_string(raw_email)
