@@ -257,14 +257,16 @@ def get_latest_email_by_date(service, sender: str, subject: str, target_month: i
         raise GmailAPIError(f"Failed to get latest email by date: {str(e)}") from e
 
 
-def build_gmail_query(email_patterns: List[str], subject_keywords: List[str],
+def build_gmail_query(email_patterns: List[str], subject_keywords: List,
                       start_date: str, end_date: str) -> str:
     """
-    Build Gmail search query from vendor config
+    Build Gmail search query from vendor config with support for mixed AND/OR logic
 
     Args:
         email_patterns: List of email addresses (e.g., ["domino@dominos.se"])
-        subject_keywords: List of keywords (e.g., ["Tack for din beställning"])
+        subject_keywords: List of keywords or keyword objects:
+            - String: "Receipt for Order #"
+            - Object: {"keywords": ["Order #", "confirmed"], "logic": "AND"}
         start_date: Start date "YYYY/MM/DD"
         end_date: End date "YYYY/MM/DD"
 
@@ -272,21 +274,49 @@ def build_gmail_query(email_patterns: List[str], subject_keywords: List[str],
         Gmail query string
 
     Example output:
-        '(from:domino@dominos.se) subject:"orderbekräftelse" after:2024/01/01 before:2024/01/31'
+        '(from:domino@dominos.se) (subject:"Receipt for Order #" OR (subject:"Order #" subject:"confirmed")) after:2024/01/01 before:2024/01/31'
     """
     # Build FROM clause (OR multiple email patterns)
     from_clause = " OR ".join([f"from:{email}" for email in email_patterns])
     if len(email_patterns) > 1:
         from_clause = f"({from_clause})"
 
-    # Build SUBJECT clause (OR multiple keywords)
+    # Build SUBJECT clause with support for mixed AND/OR logic
     subject_clause = ""
     if subject_keywords:
-        subject_parts = " OR ".join([f'subject:"{keyword}"' for keyword in subject_keywords])
-        if len(subject_keywords) > 1:
-            subject_clause = f"({subject_parts})"
-        else:
-            subject_clause = subject_parts
+        subject_parts = []
+
+        for keyword_item in subject_keywords:
+            if isinstance(keyword_item, str):
+                # Simple string keyword
+                subject_parts.append(f'subject:"{keyword_item}"')
+            elif isinstance(keyword_item, dict):
+                # Complex keyword object with logic
+                keywords = keyword_item.get('keywords', [])
+                logic = keyword_item.get('logic', 'OR').upper()
+
+                if not keywords:
+                    continue
+
+                if logic == 'AND':
+                    # For AND: subject:"term1" subject:"term2"
+                    and_part = " ".join([f'subject:"{kw}"' for kw in keywords])
+                    if len(keywords) > 1:
+                        and_part = f"({and_part})"
+                    subject_parts.append(and_part)
+                else:
+                    # For OR: subject:"term1" OR subject:"term2"
+                    or_part = " OR ".join([f'subject:"{kw}"' for kw in keywords])
+                    if len(keywords) > 1:
+                        or_part = f"({or_part})"
+                    subject_parts.append(or_part)
+
+        if subject_parts:
+            # Combine all subject parts with OR
+            if len(subject_parts) > 1:
+                subject_clause = f"({' OR '.join(subject_parts)})"
+            else:
+                subject_clause = subject_parts[0]
 
     # Combine with date range
     query_parts = [from_clause]
