@@ -1,0 +1,19 @@
+{
+  "vendor_id": {"S": "fotproffsen"},
+  "vendor_name": {"S": "Fotproffsen"},
+  "invoice_category": {"S": "retail"},
+  "invoice_sub_type": {"S": "clothing"},
+  "default_email_patterns": {"SS": [
+    "support@fotproffsen.se"
+  ]},
+  "default_subject_keywords": {"SS": [
+    "Orderbekräftelse från Fotproffsen.se"
+  ]},
+  "parser_type": {"S": "html"},
+  "active": {"BOOL": true},
+  "supports_pdf": {"BOOL": false},
+  "supports_html": {"BOOL": true},
+  "logo_url": {"S": ""},
+  "created_at": {"S": "2025-10-18T10:30:00Z"},
+  "updated_at": {"S": "2025-10-18T10:30:00Z"}
+}
