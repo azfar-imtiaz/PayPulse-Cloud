@@ -146,6 +146,18 @@ variable "daily_lambda_trigger_schedule" {
   default     = "cron(30 8 ? * MON-FRI *)" # This is 8:30 AM UTC
 }
 
+variable "weekly_retail_trigger" {
+  type        = string
+  description = "The name of the weekly retail invoice trigger"
+  default     = "WeeklyRetailInvoiceTrigger"
+}
+
+variable "weekly_retail_trigger_schedule" {
+  type        = string
+  description = "The schedule expression for weekly retail invoice trigger"
+  default     = "cron(0 18 ? * SUN *)" # This is 6:00 PM UTC every Sunday
+}
+
 # Lambda
 
 variable "python_runtime" {

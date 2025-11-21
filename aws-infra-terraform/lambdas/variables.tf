@@ -148,6 +148,11 @@ variable "daily_lambda_trigger_arn" {
   description = "The ARN of the daily lambda trigger event rule"
 }
 
+variable "weekly_retail_trigger_arn" {
+  type        = string
+  description = "The ARN of the weekly retail invoice trigger event rule"
+}
+
 # IAM role ARNs from IAM module
 variable "wallenstam_lambda_role_arn" {
   type        = string

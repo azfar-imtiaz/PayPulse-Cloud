@@ -225,111 +225,17 @@ def lambda_handler(event, context):
     try:
         logger.info(f"Received event: {json.dumps(event)}")
 
-        # Authenticate user
-        auth_header = event['headers'].get('authorization')
-        user_id = get_user_id_from_token(auth_header, JWT_SECRET)
-
-        # Get user info (including last_retail_invoice_fetch field)
-        users_table = dynamodb.Table(os.environ['USERS_TABLE'])
-        user = fetch_user_by_id(users_table, user_id)
-
-        # Parse optional request body for custom date range
-        custom_start_date = None
-        custom_end_date = None
-
-        if event.get('body'):
-            body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
-            custom_start_date = body.get('start_date')
-            custom_end_date = body.get('end_date')
-
-            # Validate: both dates must be provided if using custom range
-            if (custom_start_date and not custom_end_date) or (custom_end_date and not custom_start_date):
-                return log_and_generate_error_response(
-                    ErrorCode.MISSING_FIELDS,
-                    "Both start_date and end_date must be provided for custom date range",
-                    400,
-                    ValueError("Incomplete date range")
-                )
-
-        # Determine search date range
-        start_date, end_date = determine_search_date_range(user, custom_start_date, custom_end_date)
-
-        # Load active vendors from VendorConfig
-        vendor_config_table = dynamodb.Table(os.environ['VENDOR_CONFIG_TABLE'])
-        vendors = get_active_vendors(vendor_config_table)
-
-        if not vendors:
-            logger.info("No active vendors found in VendorConfig")
-            return success_response(
-                message="No active vendors configured for retail invoice fetching",
-                data={
-                    'totalEmailsFound': 0,
-                    'byVendor': {},
-                    'dateRange': {'start': start_date, 'end': end_date}
-                }
-            )
-
-        # Get OAuth tokens
-        oauth_data = get_oauth_tokens(user_id, region=os.environ['REGION'])
-        access_token = oauth_data['access_token']
-        refresh_token = oauth_data['refresh_token']
-        expires_at = oauth_data.get('expires_at')
-
-        logger.info("Retrieved OAuth tokens")
-
-        # Create Gmail API service
-        gmail_service = create_gmail_service(
-            user_id=user_id,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            client_id=os.environ.get('GOOGLE_OAUTH_CLIENT_ID', ''),
-            region=os.environ['REGION'],
-            client_secret=None,
-            expires_at=expires_at
-        )
-
-        # Process each vendor
-        results = {
-            'total_emails': 0,
-            'by_vendor': {},
-            'all_errors': []
-        }
-
-        for vendor in vendors:
-            vendor_result = process_vendor_emails(
-                gmail_service=gmail_service,
-                vendor=vendor,
-                user_id=user_id,
-                start_date=start_date,
-                end_date=end_date
-            )
-
-            vendor_id = vendor_result['vendor_id']
-            emails_found = vendor_result['emails_found']
-
-            results['total_emails'] += emails_found
-            results['by_vendor'][vendor_id] = emails_found
-
-            if vendor_result['errors']:
-                results['all_errors'].extend(vendor_result['errors'])
-
-        # Update last_retail_invoice_fetch timestamp
-        update_last_retail_invoice_fetch(users_table, user_id)
-
-        logger.info(f"Fetch complete: {results['total_emails']} total emails across {len(vendors)} vendors")
-
-        return success_response(
-            message="Retail invoices fetched successfully",
-            data={
-                'totalEmailsFound': results['total_emails'],
-                'byVendor': results['by_vendor'],
-                'dateRange': {
-                    'start': start_date,
-                    'end': end_date
-                },
-                'errors': results['all_errors'][:20]  # Cap errors in response
-            }
-        )
+        # Detect trigger source - EventBridge vs API Gateway
+        if 'source' in event and event['source'] == 'aws.events':
+            # EventBridge trigger - process all users weekly
+            logger.info("EventBridge trigger detected - processing weekly retail invoices for all users")
+            return process_weekly_retail_all_users()
+        else:
+            # API Gateway trigger - process single user
+            logger.info("API Gateway trigger detected - processing retail invoices for single user")
+            auth_header = event['headers'].get('authorization')
+            user_id = get_user_id_from_token(auth_header, JWT_SECRET)
+            return process_retail_single_user(event, user_id)
 
     except GmailAPIError as e:
         return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Gmail API error", 502, e)
@@ -369,3 +275,203 @@ def lambda_handler(event, context):
 
     except Exception as e:
         return log_and_generate_error_response(ErrorCode.INTERNAL_SERVER_ERROR, "Internal Server Error", 500, e)
+
+
+def process_retail_single_user(event, user_id: str):
+    """Process retail invoices for a single user (API Gateway trigger)"""
+    # Get user info (including last_retail_invoice_fetch field)
+    users_table = dynamodb.Table(os.environ['USERS_TABLE'])
+    user = fetch_user_by_id(users_table, user_id)
+
+    # Parse optional request body for custom date range
+    custom_start_date = None
+    custom_end_date = None
+
+    if event.get('body'):
+        body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
+        custom_start_date = body.get('start_date')
+        custom_end_date = body.get('end_date')
+
+        # Validate: both dates must be provided if using custom range
+        if (custom_start_date and not custom_end_date) or (custom_end_date and not custom_start_date):
+            return log_and_generate_error_response(
+                ErrorCode.MISSING_FIELDS,
+                "Both start_date and end_date must be provided for custom date range",
+                400,
+                ValueError("Incomplete date range")
+            )
+
+    # Determine search date range
+    start_date, end_date = determine_search_date_range(user, custom_start_date, custom_end_date)
+
+    # Load active vendors from VendorConfig
+    vendor_config_table = dynamodb.Table(os.environ['VENDOR_CONFIG_TABLE'])
+    vendors = get_active_vendors(vendor_config_table)
+
+    if not vendors:
+        logger.info("No active vendors found in VendorConfig")
+        return success_response(
+            message="No active vendors configured for retail invoice fetching",
+            data={
+                'totalEmailsFound': 0,
+                'byVendor': {},
+                'dateRange': {'start': start_date, 'end': end_date}
+            }
+        )
+
+    # Get OAuth tokens
+    oauth_data = get_oauth_tokens(user_id, region=os.environ['REGION'])
+    access_token = oauth_data['access_token']
+    refresh_token = oauth_data['refresh_token']
+    expires_at = oauth_data.get('expires_at')
+
+    logger.info("Retrieved OAuth tokens")
+
+    # Create Gmail API service
+    gmail_service = create_gmail_service(
+        user_id=user_id,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        client_id=os.environ.get('GOOGLE_OAUTH_CLIENT_ID', ''),
+        region=os.environ['REGION'],
+        client_secret=None,
+        expires_at=expires_at
+    )
+
+    # Process each vendor
+    results = {
+        'total_emails': 0,
+        'by_vendor': {},
+        'all_errors': []
+    }
+
+    for vendor in vendors:
+        vendor_result = process_vendor_emails(
+            gmail_service=gmail_service,
+            vendor=vendor,
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        vendor_id = vendor_result['vendor_id']
+        emails_found = vendor_result['emails_found']
+
+        results['total_emails'] += emails_found
+        results['by_vendor'][vendor_id] = emails_found
+
+        if vendor_result['errors']:
+            results['all_errors'].extend(vendor_result['errors'])
+
+    # Update last_retail_invoice_fetch timestamp
+    update_last_retail_invoice_fetch(users_table, user_id)
+
+    logger.info(f"Fetch complete: {results['total_emails']} total emails across {len(vendors)} vendors")
+
+    return success_response(
+        message="Retail invoices fetched successfully",
+        data={
+            'totalEmailsFound': results['total_emails'],
+            'byVendor': results['by_vendor'],
+            'dateRange': {
+                'start': start_date,
+                'end': end_date
+            },
+            'errors': results['all_errors'][:20]  # Cap errors in response
+        }
+    )
+
+
+def process_weekly_retail_all_users():
+    """
+    Process weekly retail invoice check for all users (EventBridge trigger)
+    """
+    try:
+        users_table = dynamodb.Table(os.environ['USERS_TABLE'])
+        vendor_config_table = dynamodb.Table(os.environ['VENDOR_CONFIG_TABLE'])
+
+        # Get all users
+        response = users_table.scan()
+        users = response['Items']
+
+        # Get active vendors
+        vendors = get_active_vendors(vendor_config_table)
+
+        results = {
+            'total_users': len(users),
+            'total_vendors': len(vendors),
+            'successful': 0,
+            'failed': 0,
+            'errors': [],
+            'processed_users': []
+        }
+
+        if not vendors:
+            return success_response(
+                message="No active vendors configured for retail invoice fetching",
+                data=results
+            )
+
+        for user in users:
+            user_id = user['UserID']
+            try:
+                logger.info(f"Processing weekly retail check for user: {user_id}")
+
+                # Use automatic date range logic (last fetch or 30 days)
+                start_date, end_date = determine_search_date_range(user)
+
+                # Get OAuth tokens
+                oauth_data = get_oauth_tokens(user_id, region=os.environ['REGION'])
+                access_token = oauth_data['access_token']
+                refresh_token = oauth_data['refresh_token']
+                expires_at = oauth_data.get('expires_at')
+
+                # Create Gmail API service
+                gmail_service = create_gmail_service(
+                    user_id=user_id,
+                    access_token=access_token,
+                    refresh_token=refresh_token,
+                    client_id=os.environ.get('GOOGLE_OAUTH_CLIENT_ID', ''),
+                    region=os.environ['REGION'],
+                    client_secret=None,
+                    expires_at=expires_at
+                )
+
+                # Process each vendor for this user
+                user_total_emails = 0
+                user_vendors_processed = []
+
+                for vendor in vendors:
+                    vendor_result = process_vendor_emails(
+                        gmail_service=gmail_service,
+                        vendor=vendor,
+                        user_id=user_id,
+                        start_date=start_date,
+                        end_date=end_date
+                    )
+
+                    vendor_id = vendor_result['vendor_id']
+                    emails_found = vendor_result['emails_found']
+                    user_total_emails += emails_found
+                    user_vendors_processed.append(f"{vendor_id}: {emails_found}")
+
+                # Update last fetch timestamp for this user
+                update_last_retail_invoice_fetch(users_table, user_id)
+
+                results['processed_users'].append(f"{user_id}: {user_total_emails} total emails from {len(vendors)} vendors")
+                results['successful'] += 1
+
+            except Exception as e:
+                error_msg = f"User {user_id}: {str(e)}"
+                results['failed'] += 1
+                results['errors'].append(error_msg)
+                logger.error(error_msg)
+
+        logger.info(f"Weekly retail check completed: {results['successful']} successful, {results['failed']} failed")
+        return success_response(
+            message="Weekly retail invoice check completed for all users",
+            data=results
+        )
+
+    except Exception as e:
+        return log_and_generate_error_response(ErrorCode.INTERNAL_SERVER_ERROR, "Error processing weekly retail check for all users", 500, e)

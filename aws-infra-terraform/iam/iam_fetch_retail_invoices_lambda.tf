@@ -38,7 +38,8 @@ resource "aws_iam_policy" "fetch_retail_invoices_lambda_policy" {
         Effect = "Allow",
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:Query"
+          "dynamodb:Query",
+          "dynamodb:Scan"
         ],
         Resource = var.users_table_arn
       },

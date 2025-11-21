@@ -16,6 +16,7 @@ resource "aws_lambda_function" "fetch_latest_invoice" {
   environment {
     variables = {
       DYNAMODB_TABLE         = var.invoices_table
+      USERS_TABLE            = var.users_table_name
       EMAIL_SENDER           = var.rental_invoice_email
       EMAIL_SUBJECT          = var.rental_invoice_email_subject
       REGION                 = var.aws_region

@@ -19,6 +19,11 @@ output "fetch_latest_invoice_invoke_arn" {
   value       = aws_lambda_function.fetch_latest_invoice.invoke_arn
 }
 
+output "fetch_latest_invoice_arn" {
+  description = "ARN of the fetch latest invoice lambda function"
+  value       = aws_lambda_function.fetch_latest_invoice.arn
+}
+
 output "parse_invoice_function_name" {
   description = "Name of the parse invoice lambda function"
   value       = aws_lambda_function.parse_invoice.function_name
@@ -117,6 +122,11 @@ output "fetch_retail_invoices_function_name" {
 output "fetch_retail_invoices_invoke_arn" {
   description = "Invoke ARN of the fetch retail invoices lambda function"
   value       = aws_lambda_function.fetch_retail_invoices.invoke_arn
+}
+
+output "fetch_retail_invoices_arn" {
+  description = "ARN of the fetch retail invoices lambda function"
+  value       = aws_lambda_function.fetch_retail_invoices.arn
 }
 
 output "parse_retail_invoice_function_name" {

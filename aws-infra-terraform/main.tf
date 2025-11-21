@@ -81,6 +81,7 @@ module "lambdas" {
   google_oauth_client_id           = var.google_oauth_client_id
   sns_topic_arn                    = aws_sns_topic.new_invoice_notification.arn
   daily_lambda_trigger_arn         = aws_cloudwatch_event_rule.daily_lambda_trigger.arn
+  weekly_retail_trigger_arn        = aws_cloudwatch_event_rule.weekly_retail_trigger.arn
 
   # Pass IAM role ARNs from IAM module
   wallenstam_lambda_role_arn           = module.iam.wallenstam_lambda_role_arn

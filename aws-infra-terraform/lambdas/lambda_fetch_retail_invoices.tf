@@ -35,6 +35,15 @@ resource "aws_lambda_function" "fetch_retail_invoices" {
   }
 }
 
+# Lambda permission for EventBridge weekly trigger
+resource "aws_lambda_permission" "fetch_retail_invoices_eventbridge" {
+  statement_id  = "AllowEventBridgeWeeklyTrigger"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.fetch_retail_invoices.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = var.weekly_retail_trigger_arn
+}
+
 resource "aws_cloudwatch_log_group" "fetch_retail_invoices" {
   name              = "/aws/lambda/${var.lambda_fetch_retail_invoices}"
   retention_in_days = 30
