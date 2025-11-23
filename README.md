@@ -186,6 +186,7 @@ Where `{sub_type}` can be:
 - `grocery` - Grocery store purchases
 - `utility` - Utility bills (electricity, water, etc.)
 - `miscellaneous` - Other retail purchases
+- `travel` - Transportation invoices (flights, trains, buses, etc.)
 
 Here, the user ID is generated dynamically, which happens when a user signs up. The user ID is a UUID prefixed with `user_`.
 
@@ -450,14 +451,14 @@ I am currently using CloudWatch for monitoring for the lambda functions. Current
 
 ### Retail Invoice Support (October 2025)
 ✅ **Implemented retail invoice fetching infrastructure:**
-- Created 8 new DynamoDB tables for retail invoices (1 base table + 7 detail tables)
+- Created 9 new DynamoDB tables for retail invoices (1 base table + 8 detail tables)
 - Implemented VendorConfig table for vendor-based invoice fetching
 - Created `fetch_retail_invoices` Lambda function with:
   - Vendor-based Gmail search using configurable email patterns and subject keywords
   - Custom date range support via request body
   - Incremental fetching using `last_retail_invoice_fetch` timestamp
   - Duplicate detection to prevent re-processing
-- Updated S3 structure to support 7 retail invoice sub-types (food-delivery, clothing, technology, subscriptions, grocery, utility, miscellaneous)
+- Updated S3 structure to support 8 retail invoice sub-types (food-delivery, clothing, technology, subscriptions, grocery, utility, miscellaneous, travel)
 - Added proper IAM policies including `s3:ListBucket` for HeadObject operations
 - Created API Gateway endpoint: `POST /v1/invoices/retail/ingest`
 
@@ -469,6 +470,7 @@ I am currently using CloudWatch for monitoring for the lambda functions. Current
 - Grocery (supermarket purchases)
 - Utility (electricity, water, internet bills)
 - Miscellaneous (other retail purchases)
+- Travel (transportation: flights, trains, buses, etc.)
 
 ## Next Steps
 - **Retail Invoice Parsing**: Implement HTML parsers for each retail invoice sub-type

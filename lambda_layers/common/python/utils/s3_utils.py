@@ -16,7 +16,8 @@ def create_user_folders_in_s3(s3, user_id: str, s3_bucket_name: str):
         f"invoices/{user_id}/retail/subscriptions/",
         f"invoices/{user_id}/retail/grocery/",
         f"invoices/{user_id}/retail/utility/",
-        f"invoices/{user_id}/retail/miscellaneous/"
+        f"invoices/{user_id}/retail/miscellaneous/",
+        f"invoices/{user_id}/retail/travel/"
     ]
 
     try:
@@ -82,7 +83,8 @@ def get_valid_retail_categories() -> list:
         'subscriptions',
         'grocery',
         'utility',
-        'miscellaneous'
+        'miscellaneous',
+        'travel'
     ]
 
 

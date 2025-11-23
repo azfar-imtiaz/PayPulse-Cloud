@@ -25,6 +25,7 @@ resource "aws_lambda_function" "parse_retail_invoice" {
       GROCERY_INVOICES_TABLE            = var.grocery_invoices_table_name
       MISC_UTILITY_INVOICES_TABLE       = var.misc_utility_invoices_table_name
       MISC_INVOICES_TABLE               = var.misc_invoices_table_name
+      TRAVEL_INVOICES_TABLE             = var.travel_invoices_table_name
       GEMINI_API_KEY                    = var.gemini_api_key_secret_string
     }
   }

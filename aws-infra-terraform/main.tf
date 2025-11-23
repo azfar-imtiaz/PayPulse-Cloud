@@ -44,6 +44,7 @@ module "iam" {
   grocery_invoices_table_arn       = aws_dynamodb_table.grocery_invoices.arn
   misc_utility_invoices_table_arn  = aws_dynamodb_table.misc_utility_invoices.arn
   misc_invoices_table_arn          = aws_dynamodb_table.misc_invoices.arn
+  travel_invoices_table_arn        = aws_dynamodb_table.travel_invoices.arn
   vendor_config_table_arn          = aws_dynamodb_table.vendor_config.arn
 }
 
@@ -105,4 +106,5 @@ module "lambdas" {
   grocery_invoices_table_name       = aws_dynamodb_table.grocery_invoices.name
   misc_utility_invoices_table_name  = aws_dynamodb_table.misc_utility_invoices.name
   misc_invoices_table_name          = aws_dynamodb_table.misc_invoices.name
+  travel_invoices_table_name        = aws_dynamodb_table.travel_invoices.name
 }

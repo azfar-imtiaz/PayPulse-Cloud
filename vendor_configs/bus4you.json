@@ -1,0 +1,19 @@
+{
+  "vendor_id": {"S": "bus4you"},
+  "vendor_name": {"S": "Bus4You"},
+  "invoice_category": {"S": "retail"},
+  "invoice_sub_type": {"S": "travel"},
+  "default_email_patterns": {"SS": [
+    "ticket-bus@vy.se"
+  ]},
+  "default_subject_keywords": {"SS": [
+    "Bokningsbekräftelse"
+  ]},
+  "parser_type": {"S": "html"},
+  "active": {"BOOL": true},
+  "supports_pdf": {"BOOL": false},
+  "supports_html": {"BOOL": true},
+  "logo_url": {"S": ""},
+  "created_at": {"S": "2025-11-23T18:30:00Z"},
+  "updated_at": {"S": "2025-11-23T18:30:00Z"}
+}

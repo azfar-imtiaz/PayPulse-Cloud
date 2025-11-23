@@ -301,6 +301,28 @@ resource "aws_dynamodb_table" "misc_invoices" {
   }
 }
 
+# Travel Invoices Detail table
+
+resource "aws_dynamodb_table" "travel_invoices" {
+  name         = var.travel_invoices_table
+  billing_mode = "PAY_PER_REQUEST"
+
+  hash_key = "InvoiceID"
+
+  attribute {
+    name = "InvoiceID"
+    type = "S"
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = {
+    Environment = "production"
+  }
+}
+
 # Vendor Configuration table
 
 resource "aws_dynamodb_table" "vendor_config" {

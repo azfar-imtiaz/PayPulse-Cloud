@@ -35,7 +35,8 @@ resource "aws_iam_policy" "delete_user_lambda_policy" {
           var.subscription_invoices_table_arn,
           var.grocery_invoices_table_arn,
           var.misc_utility_invoices_table_arn,
-          var.misc_invoices_table_arn
+          var.misc_invoices_table_arn,
+          var.travel_invoices_table_arn
         ]
       },
       {

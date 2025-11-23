@@ -244,3 +244,8 @@ variable "misc_invoices_table_name" {
   type        = string
   description = "The name of the miscellaneous invoices DynamoDB table"
 }
+
+variable "travel_invoices_table_name" {
+  type        = string
+  description = "The name of the travel invoices DynamoDB table"
+}

@@ -29,6 +29,7 @@ resource "aws_lambda_function" "delete_user" {
       GROCERY_INVOICES_TABLE            = var.grocery_invoices_table_name
       MISC_UTILITY_INVOICES_TABLE       = var.misc_utility_invoices_table_name
       MISC_INVOICES_TABLE               = var.misc_invoices_table_name
+      TRAVEL_INVOICES_TABLE             = var.travel_invoices_table_name
     }
   }
 
