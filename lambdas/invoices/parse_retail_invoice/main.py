@@ -28,6 +28,7 @@ SUBSCRIPTION_INVOICES_TABLE = os.environ['SUBSCRIPTION_INVOICES_TABLE']
 GROCERY_INVOICES_TABLE = os.environ['GROCERY_INVOICES_TABLE']
 MISC_UTILITY_INVOICES_TABLE = os.environ['MISC_UTILITY_INVOICES_TABLE']
 MISC_INVOICES_TABLE = os.environ['MISC_INVOICES_TABLE']
+TRAVEL_INVOICES_TABLE = os.environ['TRAVEL_INVOICES_TABLE']
 GEMINI_API_KEY = os.environ['GEMINI_API_KEY']
 
 # DynamoDB table references
@@ -41,7 +42,8 @@ detail_tables = {
     'subscriptions': dynamodb.Table(SUBSCRIPTION_INVOICES_TABLE),
     'grocery': dynamodb.Table(GROCERY_INVOICES_TABLE),
     'utility': dynamodb.Table(MISC_UTILITY_INVOICES_TABLE),
-    'miscellaneous': dynamodb.Table(MISC_INVOICES_TABLE)
+    'miscellaneous': dynamodb.Table(MISC_INVOICES_TABLE),
+    'travel': dynamodb.Table(TRAVEL_INVOICES_TABLE)
 }
 
 
