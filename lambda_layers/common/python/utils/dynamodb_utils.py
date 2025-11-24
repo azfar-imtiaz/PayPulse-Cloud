@@ -348,7 +348,7 @@ def get_user_retail_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
     try:
         response = dynamodb_table.query(
             KeyConditionExpression=Key('UserID').eq(user_id),
-            ProjectionExpression="currency, invoice_date, total_amount, vendor_name, sub_type"
+            ProjectionExpression="InvoiceID, invoice_date, total_amount, currency, vendor_name, sub_type"
         )
         invoices = response.get('Items', [])
         invoices_grouped = postprocess_retail_invoices(invoices)
@@ -377,7 +377,8 @@ def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: 
 
         response = dynamodb_table.query(
             IndexName='sub_type-invoice_date-index',
-            KeyConditionExpression=Key('UserID_SubType').eq(user_id_subtype)
+            KeyConditionExpression=Key('UserID_SubType').eq(user_id_subtype),
+            ProjectionExpression="InvoiceID, invoice_date, total_amount, currency, vendor_name, sub_type"
         )
         invoices = response.get('Items', [])
         invoices_grouped = postprocess_retail_invoices(invoices)
@@ -385,3 +386,31 @@ def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: 
         return invoices_grouped, len(invoices)
     except Exception as e:
         raise DatabaseError(f"Error getting retail invoices for '{user_id}' with sub-type '{sub_type}'") from e
+
+
+def get_retail_invoice_details(detail_table, invoice_id: str) -> Dict:
+    """
+    Get detailed information for a specific retail invoice from its corresponding detail table
+
+    Args:
+        detail_table: DynamoDB table resource for specific retail invoice detail table
+        invoice_id: Invoice ID to retrieve
+
+    Returns:
+        Dictionary containing detailed invoice information
+    """
+    try:
+        response = detail_table.get_item(
+            Key={'InvoiceID': invoice_id}
+        )
+
+        if 'Item' not in response:
+            logging.warning(f"No invoice details found for invoice ID '{invoice_id}'")
+            raise NoInvoiceFoundError(f"No invoice details found for invoice ID '{invoice_id}'")
+
+        logging.info(f"Retrieved invoice details for invoice ID '{invoice_id}'")
+        return response['Item']
+    except NoInvoiceFoundError:
+        raise
+    except Exception as e:
+        raise DatabaseError(f"Error getting invoice details for '{invoice_id}'") from e

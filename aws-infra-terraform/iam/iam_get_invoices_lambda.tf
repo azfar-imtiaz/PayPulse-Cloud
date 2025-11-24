@@ -33,6 +33,22 @@ resource "aws_iam_policy" "get_invoices_lambda_policy" {
           "dynamodb:Query"
         ],
         Resource = var.retail_invoices_table_arn
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "dynamodb:GetItem"
+        ],
+        Resource = [
+          var.food_delivery_invoices_table_arn,
+          var.clothing_invoices_table_arn,
+          var.technology_invoices_table_arn,
+          var.subscription_invoices_table_arn,
+          var.grocery_invoices_table_arn,
+          var.misc_utility_invoices_table_arn,
+          var.misc_invoices_table_arn,
+          var.travel_invoices_table_arn
+        ]
       }
     ]
   })
