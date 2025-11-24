@@ -286,11 +286,13 @@ def process_retail_single_user(event, user_id: str):
     # Parse optional request body for custom date range
     custom_start_date = None
     custom_end_date = None
+    vendor_category = None
 
     if event.get('body'):
         body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
         custom_start_date = body.get('start_date')
         custom_end_date = body.get('end_date')
+        vendor_category = body.get('vendor_category')
 
         # Validate: both dates must be provided if using custom range
         if (custom_start_date and not custom_end_date) or (custom_end_date and not custom_start_date):
@@ -306,7 +308,7 @@ def process_retail_single_user(event, user_id: str):
 
     # Load active vendors from VendorConfig
     vendor_config_table = dynamodb.Table(os.environ['VENDOR_CONFIG_TABLE'])
-    vendors = get_active_vendors(vendor_config_table)
+    vendors = get_active_vendors(vendor_config_table, category=vendor_category)
 
     if not vendors:
         logger.info("No active vendors found in VendorConfig")

@@ -210,22 +210,36 @@ def delete_user_invoices(dynamodb_table, user_id: str):
         raise DatabaseError(f"Error deleting invoices for '{user_id}'") from e
 
 
-def get_active_vendors(vendor_config_table) -> list:
+def get_active_vendors(vendor_config_table, category: str = None) -> list:
     """
-    Scan VendorConfig table for all active vendors
+    Scan VendorConfig table for active vendors, optionally filtered by category
 
     Args:
         vendor_config_table: DynamoDB table resource for VendorConfig
+        category: Optional category filter (e.g., 'travel', 'food-delivery', etc.)
+                 If None, returns all active vendors
 
     Returns:
         List of vendor configurations (dictionaries)
     """
     try:
+        # Build filter expression - start with active=True
+        filter_expression = Attr('active').eq(True)
+
+        # Add category filter if provided
+        if category is not None:
+            filter_expression = filter_expression & Attr('invoice_sub_type').eq(category)
+
         response = vendor_config_table.scan(
-            FilterExpression=Attr('active').eq(True)
+            FilterExpression=filter_expression
         )
         vendors = response.get('Items', [])
-        logging.info(f"Found {len(vendors)} active vendors")
+
+        if category:
+            logging.info(f"Found {len(vendors)} active vendors for category '{category}'")
+        else:
+            logging.info(f"Found {len(vendors)} active vendors")
+
         return vendors
     except ClientError as e:
         raise DatabaseError("Error retrieving active vendors from VendorConfig") from e
