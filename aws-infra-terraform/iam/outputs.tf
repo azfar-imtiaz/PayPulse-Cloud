@@ -25,9 +25,9 @@ output "delete_user_lambda_role_arn" {
   value       = aws_iam_role.delete_user_lambda_role.arn
 }
 
-output "get_rental_invoices_lambda_role_arn" {
-  description = "ARN of the get rental invoices lambda role"
-  value       = aws_iam_role.get_rental_invoices_lambda_role.arn
+output "get_invoices_lambda_role_arn" {
+  description = "ARN of the get invoices lambda role"
+  value       = aws_iam_role.get_invoices_lambda_role.arn
 }
 
 output "get_rental_invoice_lambda_role_arn" {

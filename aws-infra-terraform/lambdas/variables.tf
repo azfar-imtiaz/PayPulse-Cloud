@@ -49,9 +49,9 @@ variable "lambda_delete_user" {
   description = "The lambda function deletes all the data for a user in PayPulse-Cloud"
 }
 
-variable "lambda_get_rental_invoices" {
+variable "lambda_get_invoices" {
   type        = string
-  description = "The lambda function retrieves all parsed rental invoice data from the RentalInvoices table and returns it"
+  description = "The lambda function retrieves all parsed invoice data (rental or retail) and returns it"
 }
 
 variable "lambda_get_rental_invoice" {
@@ -169,9 +169,9 @@ variable "delete_user_lambda_role_arn" {
   description = "The ARN of the delete user lambda role"
 }
 
-variable "get_rental_invoices_lambda_role_arn" {
+variable "get_invoices_lambda_role_arn" {
   type        = string
-  description = "The ARN of the get rental invoices lambda role"
+  description = "The ARN of the get invoices lambda role"
 }
 
 variable "get_rental_invoice_lambda_role_arn" {

@@ -208,10 +208,10 @@ variable "lambda_delete_user" {
   default     = "delete_user"
 }
 
-variable "lambda_get_rental_invoices" {
+variable "lambda_get_invoices" {
   type        = string
-  description = "The lambda function retrieves all parsed rental invoice data from the RentalInvoices table and returns it"
-  default     = "get_rental_invoices"
+  description = "The lambda function retrieves all parsed invoice data (rental or retail) and returns it"
+  default     = "get_invoices"
 }
 
 variable "lambda_get_rental_invoice" {

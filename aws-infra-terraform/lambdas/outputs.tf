@@ -74,14 +74,14 @@ output "delete_user_invoke_arn" {
   value       = aws_lambda_function.delete_user.invoke_arn
 }
 
-output "get_rental_invoices_function_name" {
-  description = "Name of the get rental invoices lambda function"
-  value       = aws_lambda_function.get_rental_invoices.function_name
+output "get_invoices_function_name" {
+  description = "Name of the get invoices lambda function"
+  value       = aws_lambda_function.get_invoices.function_name
 }
 
-output "get_rental_invoices_invoke_arn" {
-  description = "Invoke ARN of the get rental invoices lambda function"
-  value       = aws_lambda_function.get_rental_invoices.invoke_arn
+output "get_invoices_invoke_arn" {
+  description = "Invoke ARN of the get invoices lambda function"
+  value       = aws_lambda_function.get_invoices.invoke_arn
 }
 
 output "get_rental_invoice_function_name" {

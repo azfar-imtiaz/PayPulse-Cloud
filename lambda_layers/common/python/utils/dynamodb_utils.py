@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 
-from utils.utility_functions import postprocess_invoices
+from utils.utility_functions import postprocess_rental_invoices, postprocess_retail_invoices
 from utils.exceptions import UserNotFoundError, UserAlreadyExistsError, DatabaseError, NoInvoiceFoundError
 
 
@@ -109,7 +109,7 @@ def get_user_rental_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
             KeyConditionExpression=Key('UserID').eq(user_id)
         )
         invoices = response.get('Items', [])
-        invoices_grouped_by_year = postprocess_invoices(invoices)
+        invoices_grouped_by_year = postprocess_rental_invoices(invoices)
         logging.info(f"Retrieved {len(invoices)} rental invoices for user '{user_id}'")
         return invoices_grouped_by_year, len(invoices)
     except Exception as e:
@@ -332,3 +332,55 @@ def delete_retail_invoice_details(detail_tables_dict: Dict, invoice_ids: list) -
         logging.info(f"Total {total_deleted} detail records deleted across all retail invoice detail tables")
     except Exception as e:
         raise DatabaseError(f"Error deleting retail invoice details: {str(e)}") from e
+
+
+def get_user_retail_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
+    """
+    Get all retail invoices for a given user
+
+    Args:
+        dynamodb_table: DynamoDB table resource for RetailInvoices
+        user_id: User ID
+
+    Returns:
+        Tuple of (invoices_dict, count)
+    """
+    try:
+        response = dynamodb_table.query(
+            KeyConditionExpression=Key('UserID').eq(user_id)
+        )
+        invoices = response.get('Items', [])
+        invoices_grouped = postprocess_retail_invoices(invoices)
+        logging.info(f"Retrieved {len(invoices)} retail invoices for user '{user_id}'")
+        return invoices_grouped, len(invoices)
+    except Exception as e:
+        raise DatabaseError(f"Error getting retail invoices for '{user_id}'") from e
+
+
+def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: str) -> Tuple[Dict, int]:
+    """
+    Get all retail invoices for a given user filtered by sub-type
+
+    Args:
+        dynamodb_table: DynamoDB table resource for RetailInvoices
+        user_id: User ID
+        sub_type: Invoice sub-type (e.g., 'food-delivery', 'technology')
+
+    Returns:
+        Tuple of (invoices_dict, count)
+    """
+    try:
+        # Use GSI-2: sub_type-invoice_date-index
+        # Partition key format: UserID_SubType
+        user_id_subtype = f"{user_id}_{sub_type}"
+
+        response = dynamodb_table.query(
+            IndexName='sub_type-invoice_date-index',
+            KeyConditionExpression=Key('UserID_SubType').eq(user_id_subtype)
+        )
+        invoices = response.get('Items', [])
+        invoices_grouped = postprocess_retail_invoices(invoices)
+        logging.info(f"Retrieved {len(invoices)} retail invoices for user '{user_id}' with sub-type '{sub_type}'")
+        return invoices_grouped, len(invoices)
+    except Exception as e:
+        raise DatabaseError(f"Error getting retail invoices for '{user_id}' with sub-type '{sub_type}'") from e
