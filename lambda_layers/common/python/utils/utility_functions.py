@@ -52,6 +52,7 @@ def postprocess_retail_invoices(invoices: List[Dict]) -> Dict:
         # Remove the temporary sort field
         for invoice in invoices_grouped_by_subtype[sub_type]:
             invoice.pop('_sort_date', None)
+            invoice.pop('sub_type')
 
     return invoices_grouped_by_subtype
 

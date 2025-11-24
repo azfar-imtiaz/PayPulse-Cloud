@@ -347,7 +347,8 @@ def get_user_retail_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
     """
     try:
         response = dynamodb_table.query(
-            KeyConditionExpression=Key('UserID').eq(user_id)
+            KeyConditionExpression=Key('UserID').eq(user_id),
+            ProjectionExpression="currency, invoice_date, total_amount, vendor_name, sub_type"
         )
         invoices = response.get('Items', [])
         invoices_grouped = postprocess_retail_invoices(invoices)
