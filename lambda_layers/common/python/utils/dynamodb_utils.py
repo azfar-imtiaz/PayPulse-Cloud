@@ -414,3 +414,75 @@ def get_retail_invoice_details(detail_table, invoice_id: str) -> Dict:
         raise
     except Exception as e:
         raise DatabaseError(f"Error getting invoice details for '{invoice_id}'") from e
+
+
+def get_retail_invoice_counts(dynamodb_table, user_id: str) -> Dict[str, int]:
+    """
+    Get counts of retail invoices for all sub-types for a given user
+
+    Args:
+        dynamodb_table: DynamoDB table resource for RetailInvoices
+        user_id: User ID
+
+    Returns:
+        Dictionary with sub-type counts: {'food-delivery': 5, 'clothing': 2, ...}
+    """
+    from utils.s3_utils import get_valid_retail_categories
+
+    try:
+        valid_categories = get_valid_retail_categories()
+        counts = {}
+
+        # Initialize all categories to 0
+        for category in valid_categories:
+            counts[category] = 0
+
+        # Query all retail invoices for the user and count by sub_type
+        response = dynamodb_table.query(
+            KeyConditionExpression=Key('UserID').eq(user_id),
+            ProjectionExpression="sub_type"
+        )
+
+        # Count invoices by sub_type
+        for invoice in response.get('Items', []):
+            sub_type = invoice.get('sub_type')
+            if sub_type in counts:
+                counts[sub_type] += 1
+
+        logging.info(f"Retrieved retail invoice counts for user '{user_id}': {counts}")
+        return counts
+
+    except Exception as e:
+        raise DatabaseError(f"Error getting retail invoice counts for '{user_id}'") from e
+
+
+def get_retail_invoice_count_by_subtype(dynamodb_table, user_id: str, sub_type: str) -> Dict[str, int]:
+    """
+    Get count of retail invoices for a specific sub-type for a given user
+
+    Args:
+        dynamodb_table: DynamoDB table resource for RetailInvoices
+        user_id: User ID
+        sub_type: Invoice sub-type (e.g., 'food-delivery', 'technology')
+
+    Returns:
+        Dictionary with single sub-type count: {'food-delivery': 5}
+    """
+    try:
+        # Use GSI-2: sub_type-invoice_date-index for efficient filtering
+        user_id_subtype = f"{user_id}_{sub_type}"
+
+        response = dynamodb_table.query(
+            IndexName='sub_type-invoice_date-index',
+            KeyConditionExpression=Key('UserID_SubType').eq(user_id_subtype),
+            Select='COUNT'  # Only return the count, not the items
+        )
+
+        count = response.get('Count', 0)
+        result = {sub_type: count}
+
+        logging.info(f"Retrieved retail invoice count for user '{user_id}' sub-type '{sub_type}': {count}")
+        return result
+
+    except Exception as e:
+        raise DatabaseError(f"Error getting retail invoice count for '{user_id}' sub-type '{sub_type}'") from e

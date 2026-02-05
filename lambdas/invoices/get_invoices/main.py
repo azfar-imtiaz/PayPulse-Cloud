@@ -4,7 +4,7 @@ import boto3
 import logging
 
 from utils.jwt_utils import get_user_id_from_token
-from utils.dynamodb_utils import get_user_rental_invoices, get_user_retail_invoices, get_user_retail_invoices_by_subtype, get_retail_invoice_details
+from utils.dynamodb_utils import get_user_rental_invoices, get_user_retail_invoices, get_user_retail_invoices_by_subtype, get_retail_invoice_details, get_retail_invoice_counts, get_retail_invoice_count_by_subtype
 from utils.s3_utils import get_valid_retail_categories
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, \
@@ -47,12 +47,13 @@ def lambda_handler(event, context):
         auth_header = event['headers'].get('authorization')
         user_id = get_user_id_from_token(auth_header, JWT_SECRET)
 
-        # Extract invoice type from path parameters and subtype/invoice-id from query parameters
+        # Extract invoice type from path parameters and subtype/invoice-id/counts from query parameters
         path_parameters = event.get('pathParameters', {}) or {}
         query_parameters = event.get('queryStringParameters', {}) or {}
         invoice_type = path_parameters.get('type')
         invoice_subtype = query_parameters.get('subtype')
         invoice_id = query_parameters.get('invoice-id')
+        counts_param = query_parameters.get('counts', '').lower() == 'true'
 
         # Validate invoice type
         if invoice_type not in ['rental', 'retail']:
@@ -63,12 +64,21 @@ def lambda_handler(event, context):
                 None
             )
 
+        # Validate parameter combinations
+        if counts_param and invoice_id:
+            return log_and_generate_error_response(
+                ErrorCode.INVALID_REQUEST,
+                "counts parameter cannot be used with invoice-id parameter",
+                400,
+                None
+            )
+
         # Handle rental invoices
         if invoice_type == 'rental':
-            if invoice_subtype or invoice_id:
+            if invoice_subtype or invoice_id or counts_param:
                 return log_and_generate_error_response(
                     ErrorCode.INVALID_REQUEST,
-                    "Rental invoices do not support sub-type filtering or detail lookup",
+                    "Rental invoices do not support sub-type filtering, detail lookup, or counts",
                     400,
                     None
                 )
@@ -78,6 +88,14 @@ def lambda_handler(event, context):
 
         # Handle retail invoices
         else:
+            if counts_param and not invoice_subtype:
+                # Get counts for all sub-types
+                counts = get_retail_invoice_counts(retail_invoices_table, user_id=user_id)
+                return success_response(
+                    message="Retail invoice counts retrieved successfully!",
+                    data=counts
+                )
+
             if invoice_subtype:
                 # Validate sub-type
                 valid_categories = get_valid_retail_categories()
@@ -102,6 +120,15 @@ def lambda_handler(event, context):
                         data={
                             "invoiceDetails": invoice_details
                         }
+                    )
+                elif counts_param:
+                    # Get count for specific sub-type
+                    counts = get_retail_invoice_count_by_subtype(
+                        retail_invoices_table, user_id=user_id, sub_type=invoice_subtype
+                    )
+                    return success_response(
+                        message=f"Retail {invoice_subtype} invoice counts retrieved successfully!",
+                        data=counts
                     )
                 else:
                     # Get summary list of invoices for the sub-type
