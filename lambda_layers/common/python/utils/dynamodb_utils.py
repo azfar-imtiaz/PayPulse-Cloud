@@ -358,7 +358,7 @@ def get_user_retail_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
         raise DatabaseError(f"Error getting retail invoices for '{user_id}'") from e
 
 
-def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: str) -> Tuple[Dict, int]:
+def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: str, group_by: str = 'year') -> Tuple[Dict, int]:
     """
     Get all retail invoices for a given user filtered by sub-type
 
@@ -366,6 +366,7 @@ def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: 
         dynamodb_table: DynamoDB table resource for RetailInvoices
         user_id: User ID
         sub_type: Invoice sub-type (e.g., 'food-delivery', 'technology')
+        group_by: Grouping strategy - 'year' or 'sub_type' (default: 'year' for sub-type queries)
 
     Returns:
         Tuple of (invoices_dict, count)
@@ -381,8 +382,8 @@ def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: 
             ProjectionExpression="InvoiceID, invoice_date, total_amount, currency, vendor_name, sub_type"
         )
         invoices = response.get('Items', [])
-        invoices_grouped = postprocess_retail_invoices(invoices)
-        logging.info(f"Retrieved {len(invoices)} retail invoices for user '{user_id}' with sub-type '{sub_type}'")
+        invoices_grouped = postprocess_retail_invoices(invoices, group_by=group_by)
+        logging.info(f"Retrieved {len(invoices)} retail invoices for user '{user_id}' with sub-type '{sub_type}' grouped by {group_by}")
         return invoices_grouped, len(invoices)
     except Exception as e:
         raise DatabaseError(f"Error getting retail invoices for '{user_id}' with sub-type '{sub_type}'") from e

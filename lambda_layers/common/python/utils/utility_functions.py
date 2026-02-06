@@ -31,9 +31,23 @@ def postprocess_rental_invoices(invoices: List[Dict]) -> Dict:
     return invoices_grouped_by_year
 
 
-def postprocess_retail_invoices(invoices: List[Dict]) -> Dict:
+def postprocess_retail_invoices(invoices: List[Dict], group_by: str = 'sub_type') -> Dict:
     """
-    This helper function groups retail invoices by sub-type, and sorts them by invoice_date in descending order
+    This helper function groups retail invoices and sorts them by invoice_date in descending order
+
+    Args:
+        invoices: List of invoice dictionaries
+        group_by: Either 'sub_type' or 'year' to determine grouping strategy
+    """
+    if group_by == 'year':
+        return postprocess_retail_invoices_by_year(invoices)
+    else:
+        return postprocess_retail_invoices_by_subtype(invoices)
+
+
+def postprocess_retail_invoices_by_subtype(invoices: List[Dict]) -> Dict:
+    """
+    Group retail invoices by sub-type, and sort them by invoice_date in descending order
     """
     invoices_grouped_by_subtype = defaultdict(lambda: [])
     for invoice in invoices:
@@ -49,12 +63,38 @@ def postprocess_retail_invoices(invoices: List[Dict]) -> Dict:
             key=lambda x: x.get('_sort_date', '1900-01-01'),
             reverse=True
         )
-        # Remove the temporary sort field
+        # Remove the temporary sort field and sub_type (since it's redundant in the key)
         for invoice in invoices_grouped_by_subtype[sub_type]:
             invoice.pop('_sort_date', None)
-            invoice.pop('sub_type')
+            invoice.pop('sub_type', None)
 
     return invoices_grouped_by_subtype
+
+
+def postprocess_retail_invoices_by_year(invoices: List[Dict]) -> Dict:
+    """
+    Group retail invoices by year, and sort them by invoice_date in descending order within each year
+    """
+    invoices_grouped_by_year = defaultdict(lambda: [])
+    for invoice in invoices:
+        invoice_date = invoice.get('invoice_date', '1900-01-01')
+        year = invoice_date.split('-')[0] if invoice_date else '1900'
+        # Convert invoice_date string to compare for sorting
+        invoice['_sort_date'] = invoice_date
+        invoices_grouped_by_year[year].append(invoice)
+
+    # Sort each year group by invoice_date in descending order (newest first)
+    for year in invoices_grouped_by_year:
+        invoices_grouped_by_year[year].sort(
+            key=lambda x: x.get('_sort_date', '1900-01-01'),
+            reverse=True
+        )
+        # Remove the temporary sort field and sub_type (not needed when grouping by year)
+        for invoice in invoices_grouped_by_year[year]:
+            invoice.pop('_sort_date', None)
+            invoice.pop('sub_type', None)
+
+    return invoices_grouped_by_year
 
 
 def convert_decimal_to_int(obj):
