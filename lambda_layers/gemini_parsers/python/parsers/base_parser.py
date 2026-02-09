@@ -36,7 +36,7 @@ class RetailInvoiceBaseParser:
         try:
             logging.info("Sending request to Gemini Flash API...")
             response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp',
+                model='gemini-2.5-flash-lite',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.1,

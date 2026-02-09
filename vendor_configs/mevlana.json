@@ -1,0 +1,19 @@
+{
+  "vendor_id": {"S": "mevlana"},
+  "vendor_name": {"S": "Mevlana Moské"},
+  "invoice_category": {"S": "retail"},
+  "invoice_sub_type": {"S": "subscriptions"},
+  "default_email_patterns": {"SS": [
+    "invoice+statements@mevlanagoteborg.se"
+  ]},
+  "default_subject_keywords": {"SS": [
+    "Ditt kvitto från Mevlana Moské Göteborg"
+  ]},
+  "parser_type": {"S": "html"},
+  "active": {"BOOL": true},
+  "supports_pdf": {"BOOL": false},
+  "supports_html": {"BOOL": true},
+  "logo_url": {"S": ""},
+  "created_at": {"S": "2026-02-08T10:30:00Z"},
+  "updated_at": {"S": "2026-02-08T10:30:00Z"}
+}
