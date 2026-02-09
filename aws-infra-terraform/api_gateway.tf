@@ -322,3 +322,30 @@ resource "aws_lambda_permission" "fetch_retail_invoices_api_permission" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
+
+# --- Endpoint for create_manual_invoice ---
+
+# Connect APIGateway to create_manual_invoice lambda function
+resource "aws_apigatewayv2_integration" "create_manual_invoice_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.lambdas.create_manual_invoice_invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path/v1/invoices/retail/manual)
+resource "aws_apigatewayv2_route" "create_manual_invoice_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "POST /${var.api_version}/invoices/retail/manual"
+  target    = "integrations/${aws_apigatewayv2_integration.create_manual_invoice_integration.id}"
+}
+
+# Allow APIGateway to invoke the create_manual_invoice lambda function
+resource "aws_lambda_permission" "create_manual_invoice_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambdas.create_manual_invoice_function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}

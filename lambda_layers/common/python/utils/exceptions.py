@@ -34,6 +34,9 @@ class SecretsManagerError(Exception):
 class InvoiceParseError(Exception):
     pass
 
+class ValidationError(Exception):
+    pass
+
 class OAuthValidationError(Exception):
     pass
 

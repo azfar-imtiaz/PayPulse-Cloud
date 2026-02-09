@@ -139,6 +139,21 @@ output "parse_retail_invoice_arn" {
   value       = aws_lambda_function.parse_retail_invoice.arn
 }
 
+output "create_manual_invoice_function_name" {
+  description = "Name of the create manual invoice lambda function"
+  value       = aws_lambda_function.create_manual_invoice.function_name
+}
+
+output "create_manual_invoice_invoke_arn" {
+  description = "Invoke ARN of the create manual invoice lambda function"
+  value       = aws_lambda_function.create_manual_invoice.invoke_arn
+}
+
+output "create_manual_invoice_arn" {
+  description = "ARN of the create manual invoice lambda function"
+  value       = aws_lambda_function.create_manual_invoice.arn
+}
+
 # Lambda layers outputs
 output "utils_layer_arn" {
   description = "ARN of the utils lambda layer"

@@ -54,3 +54,8 @@ output "parse_retail_invoice_lambda_role_arn" {
   description = "ARN of the parse retail invoice lambda role"
   value       = aws_iam_role.parse_retail_invoice_lambda_role.arn
 }
+
+output "create_manual_invoice_lambda_role_arn" {
+  description = "ARN of the create manual invoice lambda role"
+  value       = aws_iam_role.create_manual_invoice_lambda_role.arn
+}

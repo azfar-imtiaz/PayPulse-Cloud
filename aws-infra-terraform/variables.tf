@@ -244,6 +244,12 @@ variable "lambda_parse_retail_invoice" {
   default     = "parse_retail_invoice"
 }
 
+variable "lambda_create_manual_invoice" {
+  type        = string
+  description = "The lambda function for creating manual retail invoices"
+  default     = "create_manual_invoice"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"

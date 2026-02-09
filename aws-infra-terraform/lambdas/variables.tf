@@ -74,6 +74,11 @@ variable "lambda_parse_retail_invoice" {
   description = "The lambda function for parsing retail invoice HTML using Gemini API"
 }
 
+variable "lambda_create_manual_invoice" {
+  type        = string
+  description = "The lambda function for creating manual retail invoices"
+}
+
 # Table names
 variable "invoices_table" {
   type        = string
@@ -197,6 +202,11 @@ variable "fetch_retail_invoices_lambda_role_arn" {
 variable "parse_retail_invoice_lambda_role_arn" {
   type        = string
   description = "The ARN of the parse retail invoice lambda role"
+}
+
+variable "create_manual_invoice_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the create manual invoice lambda role"
 }
 
 variable "vendor_config_table_name" {
