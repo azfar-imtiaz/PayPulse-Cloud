@@ -11,7 +11,7 @@ from utils.jwt_utils import get_user_id_from_token
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.exceptions import ValidationError, DatabaseError
 from utils.invoice_validators import validate_manual_invoice_request
-from invoice_generator import generate_manual_invoice_id
+from utils.invoice_generator import generate_manual_invoice_id
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
