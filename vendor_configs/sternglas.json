@@ -1,0 +1,19 @@
+{
+  "vendor_id": {"S": "sternglas"},
+  "vendor_name": {"S": "Sternglas"},
+  "invoice_category": {"S": "retail"},
+  "invoice_sub_type": {"S": "miscellaneous"},
+  "default_email_patterns": {"SS": [
+    "support@sternglas.com"
+  ]},
+  "default_subject_keywords": {"SS": [
+    "Order #"
+  ]},
+  "parser_type": {"S": "html"},
+  "active": {"BOOL": true},
+  "supports_pdf": {"BOOL": false},
+  "supports_html": {"BOOL": true},
+  "logo_url": {"S": ""},
+  "created_at": {"S": "2026-02-17T10:30:00Z"},
+  "updated_at": {"S": "2026-02-17T10:30:00Z"}
+}
