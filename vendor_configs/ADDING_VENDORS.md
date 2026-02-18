@@ -44,3 +44,4 @@ Add an entry to the corresponding file in `lambda_layers/gemini_parsers/python/v
 ```
 
 The `vendor_id` key must match the `vendor_id` in the JSON config (lowercase).
+NOTE: This step can also be skipped. It allows for more accurate parsing at the expense of manually adding parsing specifics for the new vendor.
