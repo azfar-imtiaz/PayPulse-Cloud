@@ -1,5 +1,7 @@
 import json
+import logging
 from .base_parser import RetailInvoiceBaseParser
+from vendor_prompt_configs.miscellaneous import CONFIGS
 
 
 class MiscellaneousParser(RetailInvoiceBaseParser):
@@ -86,78 +88,18 @@ HTML Invoice:
         Returns:
             Formatted prompt for Gemini API
         """
-        if vendor_name.lower() == "amazon.se":
-            vendor_desc = "online marketplace"
-            is_email_in_swedish = False
-
-            return self.__create_extraction_prompt(
-                email_content=email_content,
-                vendor_name=vendor_name,
-                vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish
-            )
-        elif vendor_name.lower() == "amazon.com":
-            vendor_desc = "online marketplace"
-            is_email_in_swedish = False
-
-            return self.__create_extraction_prompt(
-                email_content=email_content,
-                vendor_name=vendor_name,
-                vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish
-            )
-        elif vendor_name.lower() == "clasohlson":
-            vendor_desc = "Swedish home improvement and hardware store"
-            is_email_in_swedish = True
-            swedish_instructions = """This email is in Swedish, so look for the following keywords:
-    - Ordernummer = Order number
-    - Betalningssätt = Payment method
-    - Leveranssätt = Delivery method
-    - Produkt = Product
-    - Art. nr = Article number
-    - Pris per styck = Item price
-    - Frakt = Delivery fee
-    - Betalningsavgift = Payment fee
-    - Antal = Amount/Quantity
-    - Totalt = Total
-    - moms = Tax
-"""
-            header_info = 'Look for "Orderbekräftelse" header.'
-
-            return self.__create_extraction_prompt(
-                email_content=email_content,
-                vendor_name=vendor_name,
-                vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish,
-                swedish_instructions=swedish_instructions,
-                header_info=header_info
-            )
-        elif vendor_name.lower() == "liseberg":
-            vendor_desc = "Swedish amusement park"
-            is_email_in_swedish = True
-            swedish_instructions = """This email is in Swedish, so look for the following keywords:
-    - Beställningsdatum = The date (YYYY-MM-DD) and time (HH:MM) of the order
-    - Ordernummer = Order number
-    - Betalmetod = Payment method
-    - Antal = Amount/Quantity
-    - Pris = Item price
-    - Entré = Entry (this is the item name in the case of an amusement park ticket)
-    - Summa produkter = Sum of products
-    - Totalpris = Total
-    - Total moms = Tax
-"""
-            items_desc = "amusement park tickets"
-            header_info = 'Look for "Dit köpp" header.'
-
-            return self.__create_extraction_prompt(
-                email_content=email_content,
-                vendor_name=vendor_name,
-                vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish,
-                swedish_instructions=swedish_instructions,
-                items_desc=items_desc,
-                header_info=header_info
-            )
-        else:
-            # Default prompt with no specific vendor instructions
+        config = CONFIGS.get(vendor_name.lower())
+        if config is None:
+            logging.warning(f"No prompt config found for vendor '{vendor_name}', using defaults.")
             return self.__create_extraction_prompt(email_content=email_content, vendor_name=vendor_name)
+
+        cfg = dict(config)
+        field_translations = cfg.pop("field_translations", None)
+        swedish_instructions = self._format_field_translations(field_translations) if field_translations else None
+
+        return self.__create_extraction_prompt(
+            email_content=email_content,
+            vendor_name=vendor_name,
+            swedish_instructions=swedish_instructions,
+            **cfg
+        )

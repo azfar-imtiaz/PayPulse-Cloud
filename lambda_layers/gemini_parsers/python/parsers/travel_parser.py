@@ -1,5 +1,7 @@
 import json
+import logging
 from .base_parser import RetailInvoiceBaseParser
+from vendor_prompt_configs.travel import CONFIGS
 
 
 class TravelParser(RetailInvoiceBaseParser):
@@ -79,7 +81,7 @@ HTML Invoice:
 
     def create_extraction_prompt(self, email_content: str, vendor_name: str) -> str:
         """
-        Create vendor-specific extraction prompt for food delivery invoices.
+        Create vendor-specific extraction prompt for travel invoices.
 
         Args:
             email_content: HTML content of the invoice email
@@ -88,73 +90,18 @@ HTML Invoice:
         Returns:
             Formatted prompt for Gemini API
         """
-        if vendor_name.lower() == "ryanair":
-            vendor_desc = "airline"
-            is_email_in_swedish = False
-            items_desc = "flight details"
-            header_info = 'Look for "Your flight information" header.'
-
-            return self.__create_extraction_prompt(
-                email_content=email_content,
-                vendor_name=vendor_name,
-                vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish,
-                swedish_instructions=None,
-                items_desc=items_desc,
-                header_info=header_info
-            )
-        elif vendor_name.lower() == "vr":
-            vendor_desc = "railway company"
-            is_email_in_swedish = False
-            items_desc = "trains journey details"
-            header_info = 'Look for "Thank you for your booking!" header.'
-
-            return self.__create_extraction_prompt(
-                email_content=email_content,
-                vendor_name=vendor_name,
-                vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish,
-                swedish_instructions=None,
-                items_desc=items_desc,
-                header_info=header_info
-            )
-        elif vendor_name.lower() == "flix":
-            vendor_desc = "bus and train service"
-            is_email_in_swedish = False
-            items_desc = "bus and train journey details"
-            header_info = 'Look for "Your booking is confirmed" header.'
-
-            return self.__create_extraction_prompt(
-                email_content=email_content,
-                vendor_name=vendor_name,
-                vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish,
-                swedish_instructions=None,
-                items_desc=items_desc,
-                header_info=header_info
-            )
-        elif vendor_name.lower() == "bus4you":
-            vendor_desc = "bus service"
-            is_email_in_swedish = True
-            items_desc = "bus journey details"
-
-            swedish_instructions = """This email is in Swedish, so look for the following keywords:
-    - Bokningsnummer = Booking number
-    - Datum = Date
-    - Avgång = Departure details (time HH:MM, location, stop name) 
-    - Ankomst = Arrival details (time HH:MM, location, stop name)
-"""
-            header_info = 'Look for "Nedan finner du dina bokningsuppgifter:" header'
-
-            return self.__create_extraction_prompt(
-                email_content=email_content,
-                vendor_name=vendor_name,
-                vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish,
-                swedish_instructions=swedish_instructions,
-                items_desc=items_desc,
-                header_info=header_info
-            )
-        else:
-            # Default prompt with no specific vendor instructions
+        config = CONFIGS.get(vendor_name.lower())
+        if config is None:
+            logging.warning(f"No prompt config found for vendor '{vendor_name}', using defaults.")
             return self.__create_extraction_prompt(email_content=email_content, vendor_name=vendor_name)
+
+        cfg = dict(config)
+        field_translations = cfg.pop("field_translations", None)
+        swedish_instructions = self._format_field_translations(field_translations) if field_translations else None
+
+        return self.__create_extraction_prompt(
+            email_content=email_content,
+            vendor_name=vendor_name,
+            swedish_instructions=swedish_instructions,
+            **cfg
+        )

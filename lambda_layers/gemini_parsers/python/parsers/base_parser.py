@@ -81,6 +81,14 @@ class RetailInvoiceBaseParser:
 
         return invoice_description
 
+    def _format_field_translations(self, translations: dict) -> str:
+        """
+        Converts a field_translations dict into the Swedish keyword instruction string
+        expected by __generate_custom_instructions.
+        """
+        lines = "\n".join(f"    - {k} = {v}" for k, v in translations.items())
+        return f"This email is in Swedish, so look for the following keywords:\n{lines}\n"
+
     def _generate_base_instructions(self) -> list:
         """
         Returns the universal instruction lines shared across all parsers.

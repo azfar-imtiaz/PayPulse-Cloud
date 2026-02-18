@@ -1,0 +1,43 @@
+CONFIGS = {
+    "zalando": {
+        "vendor_desc": "European online platform for buying fashion and lifestyle products",
+        "is_email_in_swedish": False,
+        "items_desc": "clothing items",
+    },
+    "fotproffsen": {
+        "vendor_desc": "online Swedish marketplace for shoes",
+        "is_email_in_swedish": True,
+        "items_desc": "shoes",
+        "header_info": 'Look for "Din beställning" header.',
+        "field_translations": {
+            "Beställningsnummer": "Order number",
+            "Beställningsdatum": "The date (YYYY-MM-DD) and time (HH:MM:SS) of the order",
+            "Betalsätt": "Payment method",
+            "Art.nr": "Article number",
+            "Storlek": "Size",
+            "Antal": "Amount/Quantity",
+            "Delsumma": "Sub-total",
+            "Fraktkostnad": "Delivery fee",
+            "Avdragna rabatter": "Discount",
+            "Att betala": "To pay / Total",
+            "moms": "Tax",
+        },
+    },
+    "jack&jones": {
+        "vendor_desc": "European menswear brand",
+        "is_email_in_swedish": True,
+        "items_desc": "clothing items for men",
+        "header_info": 'Look for "Beställnings-ID" header.',
+        "field_translations": {
+            "Beställnings-ID": "Order number",
+            "Produkt": "Product",
+            "Varunr.": "Article number",
+            "Pris": "Price",
+            "Beställning gjord": "The date (YYYY-MM-DD) and time (HH:MM:SS) of the order",
+            "Storlek": "Size",
+            "Antal": "Amount/Quantity",
+            "Summa": "Total",
+            "moms": "Tax",
+        },
+    },
+}

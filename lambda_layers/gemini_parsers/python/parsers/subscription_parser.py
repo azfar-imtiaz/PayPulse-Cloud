@@ -1,5 +1,7 @@
 import json
+import logging
 from .base_parser import RetailInvoiceBaseParser
+from vendor_prompt_configs.subscription import CONFIGS
 
 
 class SubscriptionParser(RetailInvoiceBaseParser):
@@ -69,23 +71,23 @@ HTML Invoice:
 
         Args:
             email_content: HTML content of the invoice email
-            vendor_name: Name of the vendor (e.g., 'mevlana moske', 'netflix')
+            vendor_name: Name of the vendor (e.g., 'mevlana', 'netflix')
 
         Returns:
             Formatted prompt for Gemini API
         """
-        if vendor_name.lower() == "mevlana":
-            vendor_desc = "Mosque (charity)"
-            is_email_in_swedish = False
-            header_info = 'Look for "Kvitto från Mevlana Moské Göteborg" header.'
-
-            return self.__create_extraction_prompt(
-                email_content=email_content,
-                vendor_name=vendor_name,
-                vendor_desc=vendor_desc,
-                is_email_in_swedish=is_email_in_swedish,
-                header_info=header_info
-            )
-        else:
-            # Default prompt with no specific vendor instructions
+        config = CONFIGS.get(vendor_name.lower())
+        if config is None:
+            logging.warning(f"No prompt config found for vendor '{vendor_name}', using defaults.")
             return self.__create_extraction_prompt(email_content=email_content, vendor_name=vendor_name)
+
+        cfg = dict(config)
+        field_translations = cfg.pop("field_translations", None)
+        swedish_instructions = self._format_field_translations(field_translations) if field_translations else None
+
+        return self.__create_extraction_prompt(
+            email_content=email_content,
+            vendor_name=vendor_name,
+            swedish_instructions=swedish_instructions,
+            **cfg
+        )
