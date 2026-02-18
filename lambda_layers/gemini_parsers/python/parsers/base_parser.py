@@ -56,6 +56,44 @@ class RetailInvoiceBaseParser:
             logging.error(f"Error during invoice parsing: {e}")
             return None
 
+    def _generate_invoice_description(self, vendor_name: str, vendor_desc: str = None,
+                                      is_email_in_swedish: bool = False, items_desc: str = None,
+                                      header_info: str = None) -> str:
+        """
+        Crafts the invoice description section at the start of the prompt.
+        """
+        invoice_description = f"Parse this {vendor_name.capitalize()} email"
+        if vendor_desc:
+            invoice_description += f" ({vendor_desc})."
+        else:
+            invoice_description += "."
+
+        if is_email_in_swedish:
+            invoice_description += "\nThis email is in Swedish."
+
+        if items_desc:
+            invoice_description += f"\nItems are {items_desc}."
+
+        if header_info:
+            invoice_description += "\n" + header_info
+            if not header_info.endswith("."):
+                invoice_description += "."
+
+        return invoice_description
+
+    def _generate_base_instructions(self) -> list:
+        """
+        Returns the universal instruction lines shared across all parsers.
+        """
+        return [
+            '- For dates, use ISO 8601 format (invoice_date: YYYY-MM-DD)',
+            '- For amounts, extract only the numeric value (no currency symbols)',
+            '- If a field is not found in the invoice, use null for strings and 0 for numbers',
+            '- Ensure the JSON is valid and properly formatted',
+            '- Do NOT include any explanations or text outside the JSON object',
+            '- Return ONLY the JSON object, nothing else',
+        ]
+
     def create_extraction_prompt(self, email_content: str, vendor_name: str) -> str:
         """
         Create extraction prompt for the invoice. Must be implemented by subclasses.

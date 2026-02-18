@@ -6,4 +6,4 @@ Each retail sub-type parser receives the vendor name as an argument in the `crea
 
 This would mean that instead of adding custom instructions or rules into the parser, we can just add them to the JSON and the parser will dynamically load them.
 
-I've also noticed that each sub-type parser has its own default custom instructions. Use Claude to verify if they are (mostly) the same or not. If so, they should be stored in the base parser instead.
+I've also noticed that each sub-type parser has its own default custom instructions. Perhaps these can be split into default instructions and custom instructions. Default instructions can be specified in the base parser. Custom instructions can be specified in the retail parser.

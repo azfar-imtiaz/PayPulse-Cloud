@@ -29,31 +29,6 @@ class TravelParser(RetailInvoiceBaseParser):
             ]
         })
 
-    def __generate_invoice_description(self, vendor_name: str, vendor_desc: str = None,
-                                       is_email_in_swedish: bool = False, items_desc: str = None,
-                                       header_info: str = None) -> str:
-        """
-        This helper function crafts the invoice description section at the start of the prompt.
-        """
-        invoice_description = f"Parse this {vendor_name.capitalize()} email"
-        if vendor_desc:
-            invoice_description += f" ({vendor_desc})."
-        else:
-            invoice_description += "."
-
-        if is_email_in_swedish:
-            invoice_description += "\nThis email is in Swedish."
-
-        if items_desc:
-            invoice_description += f"\nItems are {items_desc}."
-
-        if header_info:
-            invoice_description += "\n" + header_info
-            if not header_info.endswith("."):
-                invoice_description += "."
-
-        return invoice_description
-
     def __generate_custom_instructions(self, swedish_instructions: str = None):
         custom_instructions = "- Extract ALL fields from the invoice."
         if swedish_instructions:
@@ -64,14 +39,8 @@ class TravelParser(RetailInvoiceBaseParser):
 
         custom_instructions += "\n".join([
             '- Travel invoices can be for journeys via flights, trains, or buses',
-            '- For dates, use ISO 8601 format (invoice_date: YYYY-MM-DD)',
-            '- For amounts, extract only the numeric value (no currency symbols)',
             '- The travel_details array can contain one or more travel details. If it is a one-way travel, it will contain one item. If it is a return trip, it will contain two items. If there are multiple stops along the way, it can contain more than two items',
-            '- If a field is not found in the invoice, use null for strings and 0 for numbers',
-            '- Ensure the JSON is valid and properly formatted',
-            '- Do NOT include any explanations or text outside the JSON object',
-            '- Return ONLY the JSON object, nothing else'
-        ])
+        ] + self._generate_base_instructions())
 
         return custom_instructions
 
@@ -92,7 +61,7 @@ class TravelParser(RetailInvoiceBaseParser):
         """
         prompt = f"""You are an expert at extracting structured information from travel invoices.
 
-{self.__generate_invoice_description(vendor_name, vendor_desc, is_email_in_swedish, items_desc, header_info)}
+{self._generate_invoice_description(vendor_name, vendor_desc, is_email_in_swedish, items_desc, header_info)}
 
 Extract the following information from the HTML invoice below and return it as a valid JSON object.
 
