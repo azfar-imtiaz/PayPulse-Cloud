@@ -7,19 +7,18 @@ from email.message import Message
 from email.utils import parsedate_to_datetime
 from botocore.config import Config
 
+from utils.decorators import require_auth
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.utility_functions import decode_string
-from utils.jwt_utils import get_user_id_from_token
 from utils.s3_utils import download_and_upload_attachment
 from utils.dynamodb_utils import is_invoice_already_parsed, get_all_invoice_dates
 from utils.secretsmanager_utils import get_oauth_tokens
 from utils.gmail_api_utils import create_gmail_service, search_emails, get_email_content
-from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, GmailAPIError, OAuthValidationError, SecretsManagerError, RefreshTokenExpiredError
+from utils.exceptions import GmailAPIError, OAuthValidationError, SecretsManagerError, RefreshTokenExpiredError
 
 s3_client = boto3.client('s3')
 config = Config(retries={'max_attempts': 5, 'mode': 'adaptive'})
 dynamodb = boto3.resource('dynamodb', config=config)
-JWT_SECRET = os.environ['JWT_SECRET']
 
 
 def extract_and_upload_invoice(msg: Message, invoices_found: int, user_id: str) -> int:
@@ -37,11 +36,11 @@ def extract_and_upload_invoice(msg: Message, invoices_found: int, user_id: str) 
     return invoices_found
 
 
-def lambda_handler(event, context):
+@require_auth
+def lambda_handler(event, context, user_id):
+    """Fetch rental invoices from Gmail - requires JWT authentication"""
     logging.info(f"Received this event: {json.dumps(event)}")
     try:
-        auth_header = event['headers'].get('authorization')
-        user_id = get_user_id_from_token(auth_header, JWT_SECRET)
 
         # Get OAuth tokens from Secrets Manager
         oauth_data = get_oauth_tokens(user_id, region=os.environ['REGION'])
@@ -111,18 +110,6 @@ def lambda_handler(event, context):
 
     except SecretsManagerError as e:
         return log_and_generate_error_response(ErrorCode.GMAIL_TOKEN_EXPIRED, "Error retrieving OAuth tokens", 502, e)
-
-    except InvalidCredentialsError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)
-
-    except InvalidTokenError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_TOKEN, "Malformed Token", 401, e)
-
-    except TokenExpiredError as e:
-        return log_and_generate_error_response(ErrorCode.TOKEN_EXPIRED, "Expired token", 401, e)
-
-    except JWTDecodingError as e:
-        return log_and_generate_error_response(ErrorCode.JWT_ERROR, "Error parsing JWT token", 500, e)
 
     except json.JSONDecodeError as e:
         return log_and_generate_error_response(ErrorCode.INVALID_JSON, "Invalid JSON in request body", 400, e)

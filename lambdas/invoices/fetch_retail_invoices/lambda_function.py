@@ -6,21 +6,19 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, Any
 
-from utils.jwt_utils import get_user_id_from_token
+from utils.decorators import require_auth
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.secretsmanager_utils import get_oauth_tokens
 from utils.dynamodb_utils import fetch_user_by_id, get_active_vendors, update_last_retail_invoice_fetch
 from utils.gmail_api_utils import create_gmail_service, build_gmail_query, get_email_content, extract_html_from_email
 from utils.s3_utils import generate_retail_invoice_s3_key, s3_file_exists, upload_html_to_s3
 from utils.exceptions import (
-    JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError,
     GmailAPIError, OAuthValidationError, SecretsManagerError, RefreshTokenExpiredError,
     UserNotFoundError, DatabaseError
 )
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
-JWT_SECRET = os.environ['JWT_SECRET']
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -194,7 +192,7 @@ def process_vendor_emails(gmail_service, vendor: dict, user_id: str, start_date:
 
 def lambda_handler(event, context):
     """
-    Fetch retail invoices from Gmail for all active vendors
+    Main entry point - routes between EventBridge and API Gateway triggers
 
     API Endpoint: POST /v1/invoices/retail/ingest
 
@@ -233,9 +231,7 @@ def lambda_handler(event, context):
         else:
             # API Gateway trigger - process single user
             logger.info("API Gateway trigger detected - processing retail invoices for single user")
-            auth_header = event['headers'].get('authorization')
-            user_id = get_user_id_from_token(auth_header, JWT_SECRET)
-            return process_retail_single_user(event, user_id)
+            return _handle_api_gateway_request(event, context)
 
     except GmailAPIError as e:
         return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Gmail API error", 502, e)
@@ -248,18 +244,6 @@ def lambda_handler(event, context):
 
     except SecretsManagerError as e:
         return log_and_generate_error_response(ErrorCode.GMAIL_TOKEN_EXPIRED, "Error retrieving OAuth tokens", 502, e)
-
-    except InvalidCredentialsError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)
-
-    except InvalidTokenError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_TOKEN, "Malformed Token", 401, e)
-
-    except TokenExpiredError as e:
-        return log_and_generate_error_response(ErrorCode.TOKEN_EXPIRED, "Expired token", 401, e)
-
-    except JWTDecodingError as e:
-        return log_and_generate_error_response(ErrorCode.JWT_ERROR, "Error parsing JWT token", 500, e)
 
     except UserNotFoundError as e:
         return log_and_generate_error_response(ErrorCode.USER_NOT_FOUND, "User not found", 404, e)
@@ -275,6 +259,12 @@ def lambda_handler(event, context):
 
     except Exception as e:
         return log_and_generate_error_response(ErrorCode.INTERNAL_SERVER_ERROR, "Internal Server Error", 500, e)
+
+
+@require_auth
+def _handle_api_gateway_request(event, context, user_id):
+    """Handle authenticated API Gateway requests"""
+    return process_retail_single_user(event, user_id)
 
 
 def process_retail_single_user(event, user_id: str):

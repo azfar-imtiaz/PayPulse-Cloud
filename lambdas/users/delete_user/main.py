@@ -3,13 +3,12 @@ import json
 import boto3
 import logging
 
-from utils.jwt_utils import get_user_id_from_token
+from utils.decorators import require_auth
 from utils.s3_utils import delete_user_folder_in_s3
 from utils.dynamodb_utils import delete_user_invoices, delete_user_in_dynamodb, delete_user_retail_invoices, delete_retail_invoice_details
 from utils.secretsmanager_utils import delete_email_credentials
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
-from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, \
-    SecretsManagerError, DatabaseError, S3Error
+from utils.exceptions import SecretsManagerError, DatabaseError, S3Error
 
 
 dynamodb = boto3.resource('dynamodb')
@@ -19,7 +18,6 @@ s3 = boto3.client('s3')
 USERS_TABLE = os.environ['USERS_TABLE']
 INVOICES_TABLE = os.environ['INVOICES_TABLE']
 BUCKET_NAME = os.environ['BUCKET_NAME']
-JWT_SECRET = os.environ['JWT_SECRET']
 
 # Retail invoice table names
 RETAIL_INVOICES_TABLE = os.environ['RETAIL_INVOICES_TABLE']
@@ -47,10 +45,10 @@ detail_tables = {
 }
 
 
-def lambda_handler(event, context):
+@require_auth
+def lambda_handler(event, context, user_id):
+    """Delete user and all associated data - requires JWT authentication"""
     try:
-        auth_header = event['headers'].get('authorization')
-        user_id = get_user_id_from_token(auth_header, JWT_SECRET)
 
         # delete all rental invoices for this user in the RentalInvoices table
         delete_user_invoices(invoices_table, user_id=user_id)
@@ -77,18 +75,6 @@ def lambda_handler(event, context):
         return success_response(
             message=f"All data for user {user_id} deleted successfully!"
         )
-
-    except InvalidCredentialsError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)
-
-    except InvalidTokenError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_TOKEN, "Malformed Token", 401, e)
-
-    except TokenExpiredError as e:
-        return log_and_generate_error_response(ErrorCode.TOKEN_EXPIRED, "Expired token", 401, e)
-
-    except JWTDecodingError as e:
-        return log_and_generate_error_response(ErrorCode.JWT_ERROR, "Error parsing JWT token", 500, e)
 
     except json.JSONDecodeError as e:
         return log_and_generate_error_response(ErrorCode.INVALID_JSON, "Invalid JSON in request body", 400, e)

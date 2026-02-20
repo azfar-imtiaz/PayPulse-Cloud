@@ -4,20 +4,20 @@ import boto3
 import logging
 from datetime import datetime
 
+from utils.decorators import require_auth
 from utils.dynamodb_utils import invoice_exists_in_dynamodb
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.secretsmanager_utils import get_oauth_tokens
 from utils.s3_utils import download_and_upload_attachment
-from utils.jwt_utils import get_user_id_from_token
 from utils.gmail_api_utils import create_gmail_service, get_latest_email_by_date
-from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, GmailAPIError, OAuthValidationError, SecretsManagerError
+from utils.exceptions import GmailAPIError, OAuthValidationError, SecretsManagerError
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
-JWT_SECRET = os.environ['JWT_SECRET']
 
 
 def lambda_handler(event, context):
+    """Main entry point - routes between EventBridge and API Gateway triggers"""
     try:
         # Debug: Log the incoming event structure
         logging.info(f"Received event: {json.dumps(event)}")
@@ -30,9 +30,7 @@ def lambda_handler(event, context):
         else:
             # API Gateway trigger - process single user
             logging.info("API Gateway trigger detected - processing single user")
-            auth_header = event['headers'].get('authorization')
-            user_id = get_user_id_from_token(auth_header, JWT_SECRET)
-            return process_daily_rental_single_user(user_id)
+            return _handle_api_gateway_request(event, context)
 
     except GmailAPIError as e:
         return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Gmail API error", 502, e)
@@ -43,18 +41,6 @@ def lambda_handler(event, context):
     except SecretsManagerError as e:
         return log_and_generate_error_response(ErrorCode.DEPENDENCY_FAILURE, "Error retrieving OAuth tokens", 502, e)
 
-    except InvalidCredentialsError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)
-
-    except InvalidTokenError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_TOKEN, "Malformed Token", 401, e)
-
-    except TokenExpiredError as e:
-        return log_and_generate_error_response(ErrorCode.TOKEN_EXPIRED, "Expired token", 401, e)
-
-    except JWTDecodingError as e:
-        return log_and_generate_error_response(ErrorCode.JWT_ERROR, "Error parsing JWT token", 500, e)
-
     except json.JSONDecodeError as e:
         return log_and_generate_error_response(ErrorCode.INVALID_JSON, "Invalid JSON in request body", 400, e)
 
@@ -63,6 +49,12 @@ def lambda_handler(event, context):
 
     except Exception as e:
         return log_and_generate_error_response(ErrorCode.INTERNAL_SERVER_ERROR, "Internal Server Error", 500, e)
+
+
+@require_auth
+def _handle_api_gateway_request(event, context, user_id):
+    """Handle authenticated API Gateway requests"""
+    return process_daily_rental_single_user(user_id)
 
 
 def process_daily_rental_single_user(user_id: str):

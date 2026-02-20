@@ -3,19 +3,17 @@ import json
 import boto3
 import logging
 
-from utils.jwt_utils import get_user_id_from_token
+from utils.decorators import require_auth
 from utils.dynamodb_utils import get_user_rental_invoices, get_user_retail_invoices, get_user_retail_invoices_by_subtype, get_retail_invoice_details, get_retail_invoice_counts, get_retail_invoice_count_by_subtype
 from utils.s3_utils import get_valid_retail_categories
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
-from utils.exceptions import JWTDecodingError, InvalidCredentialsError, InvalidTokenError, TokenExpiredError, \
-    DatabaseError, NoInvoiceFoundError
+from utils.exceptions import DatabaseError, NoInvoiceFoundError
 
 
 dynamodb = boto3.resource('dynamodb')
 
 RENTAL_INVOICES_TABLE = os.environ['RENTAL_INVOICES_TABLE']
 RETAIL_INVOICES_TABLE = os.environ['RETAIL_INVOICES_TABLE']
-JWT_SECRET = os.environ['JWT_SECRET']
 
 rental_invoices_table = dynamodb.Table(RENTAL_INVOICES_TABLE)
 retail_invoices_table = dynamodb.Table(RETAIL_INVOICES_TABLE)
@@ -42,10 +40,10 @@ def get_retail_detail_table_name(sub_type: str) -> str:
     return subtype_to_table[sub_type]
 
 
-def lambda_handler(event, context):
+@require_auth
+def lambda_handler(event, context, user_id):
+    """Get invoices (rental or retail) for a user - requires JWT authentication"""
     try:
-        auth_header = event['headers'].get('authorization')
-        user_id = get_user_id_from_token(auth_header, JWT_SECRET)
 
         # Extract invoice type from path parameters and subtype/invoice-id/counts from query parameters
         path_parameters = event.get('pathParameters', {}) or {}
@@ -163,18 +161,6 @@ def lambda_handler(event, context):
             return success_response(
                 message=f"No {message_prefix.lower()} invoices found for this user."
             )
-
-    except InvalidCredentialsError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_CREDENTIALS, "Invalid Credentials", 401, e)
-
-    except InvalidTokenError as e:
-        return log_and_generate_error_response(ErrorCode.INVALID_TOKEN, "Malformed Token", 401, e)
-
-    except TokenExpiredError as e:
-        return log_and_generate_error_response(ErrorCode.TOKEN_EXPIRED, "Expired token", 401, e)
-
-    except JWTDecodingError as e:
-        return log_and_generate_error_response(ErrorCode.JWT_ERROR, "Error parsing JWT token", 500, e)
 
     except json.JSONDecodeError as e:
         return log_and_generate_error_response(ErrorCode.INVALID_JSON, "Invalid JSON in request body", 400, e)

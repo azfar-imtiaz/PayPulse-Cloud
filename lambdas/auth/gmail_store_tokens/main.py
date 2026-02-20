@@ -4,29 +4,25 @@ import boto3
 from urllib.parse import parse_qs
 from urllib.error import URLError, HTTPError
 
+from utils.decorators import require_auth
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.secretsmanager_utils import store_oauth_tokens
 from utils.oauth_utils import validate_oauth_tokens, get_google_user_info, validate_google_account_consistency
-from utils.jwt_utils import get_user_id_from_token
 from utils.s3_utils import create_user_folders_in_s3
 from utils.exceptions import (
-    JWTDecodingError, 
-    InvalidCredentialsError, 
-    InvalidTokenError, 
-    TokenExpiredError,
     SecretsManagerError,
     OAuthValidationError
 )
 
-JWT_SECRET = os.environ['JWT_SECRET']
 REGION = os.environ['REGION']
 S3_BUCKET = os.environ.get('S3_BUCKET', '')
 
 s3_client = boto3.client('s3')
 
-def lambda_handler(event, context):
+@require_auth
+def lambda_handler(event, context, user_id):
     """
-    Receives OAuth tokens directly from iOS app and stores them in SecretsManager
+    Receives OAuth tokens directly from iOS app and stores them in SecretsManager - requires JWT authentication
 
     Expected request body:
     {
@@ -41,13 +37,11 @@ def lambda_handler(event, context):
     print(f"Event keys: {list(event.keys())}")
     print(f"Event headers: {event.get('headers')}")
     print(f"Event body: {event.get('body')}")
-    
+
     try:
-        # Get user ID from JWT token
-        headers = event.get('headers', {})
-        auth_header = headers.get('authorization')
-        user_id = get_user_id_from_token(auth_header, JWT_SECRET)
         print(f"Processing OAuth token storage for user: {user_id}")
+
+        headers = event.get('headers', {})
         
         body = event.get('body')
         print(f"Raw body received: {repr(body)}")
@@ -161,31 +155,7 @@ def lambda_handler(event, context):
             400, 
             e
         )
-        
-    except InvalidTokenError as e:
-        return log_and_generate_error_response(
-            ErrorCode.INVALID_TOKEN, 
-            "Malformed JWT Token", 
-            401, 
-            e
-        )
-        
-    except TokenExpiredError as e:
-        return log_and_generate_error_response(
-            ErrorCode.TOKEN_EXPIRED, 
-            "Expired JWT token", 
-            401, 
-            e
-        )
-        
-    except JWTDecodingError as e:
-        return log_and_generate_error_response(
-            ErrorCode.JWT_ERROR, 
-            "Error parsing JWT token", 
-            500, 
-            e
-        )
-        
+
     except SecretsManagerError as e:
         return log_and_generate_error_response(
             ErrorCode.DEPENDENCY_FAILURE, 
