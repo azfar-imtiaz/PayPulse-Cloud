@@ -42,4 +42,20 @@ CONFIGS = {
             "Total moms": "Tax",
         },
     },
+    "sternglas": {
+        "vendor_desc": "German watch microbrand",
+        "is_email_in_swedish": False,
+    },
+    "filmstaden": {
+        "vendor_desc": "Cinema",
+        "is_email_in_swedish": True,
+        "field_translations": {
+            "Artikel": "Article",
+            "Totalt": "Total",
+            "Moms": "Tax",
+            "Betalmedel Kort": "Payment method card",
+            "Transaktionsdatum": "Transaction date"
+        },
+        "header_info": 'Look for "Bokningsinformation" header'
+    }
 }
