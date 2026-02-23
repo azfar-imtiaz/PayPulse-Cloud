@@ -249,3 +249,13 @@ variable "travel_invoices_table_name" {
   type        = string
   description = "The name of the travel invoices DynamoDB table"
 }
+
+variable "lambda_delete_retail_invoice" {
+  type        = string
+  description = "Path to delete_retail_invoice lambda function"
+}
+
+variable "delete_retail_invoice_lambda_role_arn" {
+  type        = string
+  description = "IAM role ARN for delete_retail_invoice lambda"
+}

@@ -322,3 +322,30 @@ resource "aws_lambda_permission" "fetch_retail_invoices_api_permission" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
+
+# --- Endpoint for delete_retail_invoice ---
+
+# Connect APIGateway to delete_retail_invoice lambda function
+resource "aws_apigatewayv2_integration" "delete_retail_invoice_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.lambdas.delete_retail_invoice_invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path: DELETE /v1/invoices/retail/{invoice_id})
+resource "aws_apigatewayv2_route" "delete_retail_invoice_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "DELETE /${var.api_version}/invoices/retail/{invoice_id}"
+  target    = "integrations/${aws_apigatewayv2_integration.delete_retail_invoice_integration.id}"
+}
+
+# Allow APIGateway to invoke the delete_retail_invoice lambda function
+resource "aws_lambda_permission" "delete_retail_invoice_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambdas.delete_retail_invoice_function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}

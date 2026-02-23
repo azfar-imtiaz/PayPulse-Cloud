@@ -244,6 +244,12 @@ variable "lambda_parse_retail_invoice" {
   default     = "parse_retail_invoice"
 }
 
+variable "lambda_delete_retail_invoice" {
+  type        = string
+  description = "The lambda function for deleting a retail invoice"
+  default     = "invoices/delete_retail_invoice"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"

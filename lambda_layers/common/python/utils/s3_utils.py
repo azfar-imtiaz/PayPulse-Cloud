@@ -215,3 +215,33 @@ def upload_html_to_s3(s3_client, bucket_name: str, s3_key: str, html_content: st
         logging.info(f"Uploaded to S3: {s3_key}")
     except Exception as e:
         raise S3Error(f"Error uploading HTML to S3: {s3_key}") from e
+
+
+def delete_invoice_from_s3(s3_client, bucket_name: str, s3_key: str) -> None:
+    """
+    Delete invoice file from S3 (idempotent - no error if file doesn't exist)
+
+    Args:
+        s3_client: Boto3 S3 client
+        bucket_name: S3 bucket name
+        s3_key: S3 object key/path
+
+    Raises:
+        S3Error: If deletion fails (except for file not found)
+    """
+    try:
+        from botocore.exceptions import ClientError
+
+        s3_client.delete_object(Bucket=bucket_name, Key=s3_key)
+        logging.info(f"Deleted invoice file from S3: {s3_key}")
+    except ClientError as e:
+        error_code = e.response['Error']['Code']
+        # Handle file not found gracefully (idempotent delete)
+        if error_code == 'NoSuchKey' or error_code == '404':
+            logging.warning(f"S3 file not found (already deleted?): {s3_key}")
+        else:
+            logging.error(f"Error deleting from S3: {e}")
+            raise S3Error(f"Error deleting file from S3: {s3_key}") from e
+    except Exception as e:
+        logging.error(f"Unexpected error deleting from S3: {e}")
+        raise S3Error(f"Error deleting file: {s3_key}") from e
