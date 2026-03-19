@@ -139,6 +139,16 @@ output "parse_retail_invoice_arn" {
   value       = aws_lambda_function.parse_retail_invoice.arn
 }
 
+output "delete_retail_invoice_invoke_arn" {
+  description = "Invoke ARN for delete_retail_invoice lambda"
+  value       = aws_lambda_function.delete_retail_invoice.invoke_arn
+}
+
+output "delete_retail_invoice_function_name" {
+  description = "Function name for delete_retail_invoice lambda"
+  value       = aws_lambda_function.delete_retail_invoice.function_name
+}
+
 # Lambda layers outputs
 output "utils_layer_arn" {
   description = "ARN of the utils lambda layer"
@@ -153,14 +163,4 @@ output "pyjwt_layer_arn" {
 output "bcrypt_layer_arn" {
   description = "ARN of the bcrypt lambda layer"
   value       = data.klayers_package_latest_version.bcrypt.arn
-}
-
-output "delete_retail_invoice_invoke_arn" {
-  description = "Invoke ARN for delete_retail_invoice lambda"
-  value       = aws_lambda_function.delete_retail_invoice.invoke_arn
-}
-
-output "delete_retail_invoice_function_name" {
-  description = "Function name for delete_retail_invoice lambda"
-  value       = aws_lambda_function.delete_retail_invoice.function_name
 }
