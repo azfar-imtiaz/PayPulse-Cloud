@@ -64,3 +64,8 @@ output "delete_retail_invoice_lambda_role_arn" {
   description = "ARN of the delete retail invoice lambda role"
   value       = aws_iam_role.delete_retail_invoice_lambda_role.arn
 }
+
+output "start_retail_invoice_backfill_lambda_role_arn" {
+  description = "ARN of the start retail invoice backfill lambda role"
+  value       = aws_iam_role.start_retail_invoice_backfill_lambda_role.arn
+}

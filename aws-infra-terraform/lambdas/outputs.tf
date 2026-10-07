@@ -154,6 +154,16 @@ output "delete_retail_invoice_function_name" {
   value       = aws_lambda_function.delete_retail_invoice.function_name
 }
 
+output "start_retail_invoice_backfill_invoke_arn" {
+  description = "Invoke ARN for start_retail_invoice_backfill lambda"
+  value       = aws_lambda_function.start_retail_invoice_backfill.invoke_arn
+}
+
+output "start_retail_invoice_backfill_function_name" {
+  description = "Function name for start_retail_invoice_backfill lambda"
+  value       = aws_lambda_function.start_retail_invoice_backfill.function_name
+}
+
 # Lambda layers outputs
 output "utils_layer_arn" {
   description = "ARN of the utils lambda layer"

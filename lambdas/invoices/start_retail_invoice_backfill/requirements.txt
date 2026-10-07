@@ -1,0 +1,4 @@
+# Documentation only - actual dependencies come from Lambda layers:
+#   - utils_layer (decorators, responses)
+#   - pyjwt_layer (JWT validation inside @require_auth)
+# boto3 is provided by the Lambda runtime.

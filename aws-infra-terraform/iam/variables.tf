@@ -106,3 +106,8 @@ variable "retail_email_classification_ledger_table_arn" {
   type        = string
   description = "ARN of RetailEmailClassificationLedger table"
 }
+
+variable "retail_invoice_backfill_state_machine_arn" {
+  type        = string
+  description = "ARN of the retail-invoice-backfill Step Functions state machine"
+}

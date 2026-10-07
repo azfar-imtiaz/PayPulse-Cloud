@@ -47,6 +47,7 @@ module "iam" {
   travel_invoices_table_arn                    = aws_dynamodb_table.travel_invoices.arn
   vendor_config_table_arn                      = aws_dynamodb_table.vendor_config.arn
   retail_email_classification_ledger_table_arn = aws_dynamodb_table.retail_email_classification_ledger.arn
+  retail_invoice_backfill_state_machine_arn    = aws_sfn_state_machine.retail_invoice_backfill.arn
 }
 
 # Lambda module
@@ -71,6 +72,7 @@ module "lambdas" {
   lambda_parse_retail_invoice               = var.lambda_parse_retail_invoice
   lambda_delete_retail_invoice              = var.lambda_delete_retail_invoice
   lambda_fetch_and_classify_retail_invoices = var.lambda_fetch_and_classify_retail_invoices
+  lambda_start_retail_invoice_backfill      = var.lambda_start_retail_invoice_backfill
   invoices_table                            = var.invoices_table
   rental_invoice_email                      = var.rental_invoice_email
   rental_invoice_email_subject              = var.rental_invoice_email_subject
@@ -100,6 +102,8 @@ module "lambdas" {
   fetch_and_classify_retail_invoices_lambda_role_arn = module.iam.fetch_and_classify_retail_invoices_lambda_role_arn
   parse_retail_invoice_lambda_role_arn               = module.iam.parse_retail_invoice_lambda_role_arn
   delete_retail_invoice_lambda_role_arn              = module.iam.delete_retail_invoice_lambda_role_arn
+  start_retail_invoice_backfill_lambda_role_arn      = module.iam.start_retail_invoice_backfill_lambda_role_arn
+  retail_invoice_backfill_state_machine_arn          = aws_sfn_state_machine.retail_invoice_backfill.arn
   vendor_config_table_name                           = aws_dynamodb_table.vendor_config.name
   gemini_api_key_secret_string                       = aws_secretsmanager_secret_version.gemini_api_key_value.secret_string
   jev_api_key_secret_string                          = aws_secretsmanager_secret_version.jev_api_key_value.secret_string

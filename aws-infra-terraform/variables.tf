@@ -274,6 +274,12 @@ variable "lambda_delete_retail_invoice" {
   default     = "delete_retail_invoice"
 }
 
+variable "lambda_start_retail_invoice_backfill" {
+  type        = string
+  description = "The lambda function for the API-triggered historical retail invoice backfill endpoint"
+  default     = "start_retail_invoice_backfill"
+}
+
 variable "lambda_fetch_and_classify_retail_invoices" {
   type        = string
   description = "The lambda function for the broad Gmail sweep + Jev classification retail invoice discovery pipeline"

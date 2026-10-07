@@ -235,6 +235,21 @@ variable "delete_retail_invoice_lambda_role_arn" {
   description = "IAM role ARN for delete_retail_invoice lambda"
 }
 
+variable "lambda_start_retail_invoice_backfill" {
+  type        = string
+  description = "The lambda function for the API-triggered historical retail invoice backfill endpoint"
+}
+
+variable "start_retail_invoice_backfill_lambda_role_arn" {
+  type        = string
+  description = "IAM role ARN for start_retail_invoice_backfill lambda"
+}
+
+variable "retail_invoice_backfill_state_machine_arn" {
+  type        = string
+  description = "ARN of the retail-invoice-backfill Step Functions state machine"
+}
+
 # Retail invoice table names
 variable "retail_invoices_table_name" {
   type        = string

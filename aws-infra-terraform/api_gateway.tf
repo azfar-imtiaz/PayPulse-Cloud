@@ -349,3 +349,32 @@ resource "aws_lambda_permission" "delete_retail_invoice_api_permission" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
+
+# --- Endpoint for start_retail_invoice_backfill ---
+# NOTE: this endpoint is untested - implemented for completeness, see
+# lambdas/invoices/start_retail_invoice_backfill/main.py.
+
+# Connect APIGateway to start_retail_invoice_backfill lambda function
+resource "aws_apigatewayv2_integration" "start_retail_invoice_backfill_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.lambdas.start_retail_invoice_backfill_invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path: POST /v1/invoices/retail/backfill)
+resource "aws_apigatewayv2_route" "start_retail_invoice_backfill_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "POST /${var.api_version}/invoices/retail/backfill"
+  target    = "integrations/${aws_apigatewayv2_integration.start_retail_invoice_backfill_integration.id}"
+}
+
+# Allow APIGateway to invoke the start_retail_invoice_backfill lambda function
+resource "aws_lambda_permission" "start_retail_invoice_backfill_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambdas.start_retail_invoice_backfill_function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}
