@@ -10,6 +10,21 @@ Derives user_id from the caller's JWT (not request body), so a user can only eve
 a backfill for their own account. Computes the same bounded, non-overlapping batch windows
 the CLI script does, then starts one execution of the retail-invoice-backfill Step
 Functions state machine - no polling/orchestration here, same as the CLI's approach.
+
+TODO: this endpoint is fire-and-forget - start_execution returns immediately with an
+executionArn, and the backfill then runs independently with no way for the caller to
+learn when it finishes. Two options, neither built yet:
+  1. Polling endpoint - GET /v1/invoices/retail/backfill/status?executionArn=...,
+     authenticated the same way, wraps states:DescribeExecution and returns
+     {status, startDate, stopDate}. Smallest addition; app just polls after kicking off
+     a backfill.
+  2. Push notification on completion - an EventBridge rule on Step Functions execution
+     state-change events for this state machine, feeding the existing
+     NewInvoiceNotificationTopic SNS topic (already used for new-invoice push
+     notifications). Needs a way to map the completed execution back to the triggering
+     user (e.g. parse user_id out of the execution's stored input in the event detail)
+     before notifying that user's device.
+Deferred until the app-facing feature is actually prioritized.
 """
 
 import os
