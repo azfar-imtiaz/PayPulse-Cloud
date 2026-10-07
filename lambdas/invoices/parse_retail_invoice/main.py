@@ -358,6 +358,25 @@ def lambda_handler(event, context):
                 Exception("Gemini API parsing failed")
             )
 
+        # Per base_parser.py's extraction instructions, Gemini returns 0 for any numeric
+        # field it couldn't find in the email - so total_amount == 0 is "I found no amount,"
+        # which strongly correlates with this being a non-invoice lifecycle email
+        # (shipping/delivery confirmation, etc.).
+        # Skip the DB insert, keep the S3 HTML (cheap, useful as future training data).
+        total_amount = parsed_data.get('total_amount')
+        if total_amount is None or total_amount == 0:
+            logging.info(
+                f"Skipping DB insert for vendor '{vendor_name}' - total_amount is "
+                f"{total_amount!r}, likely a non-invoice lifecycle email rather than a real charge"
+            )
+            if message_id and ledger_table:
+                write_ledger_entry(ledger_table, user_id, message_id, status='rejected_zero_amount',
+                                    error_detail="total_amount was zero or missing after extraction")
+            return success_response(
+                message="Email skipped - no billable amount found, not treated as a real invoice",
+                data={'sub_type': sub_type, 'vendor_name': vendor_name, 'outcome': 'rejected_zero_amount'}
+            )
+
         # Insert or upsert parsed data into DynamoDB
         invoice_id, outcome = upsert_retail_invoice_to_dynamodb(
             invoice_data=parsed_data,
