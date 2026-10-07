@@ -42,3 +42,6 @@ class GmailAPIError(Exception):
 
 class RefreshTokenExpiredError(Exception):
     pass
+
+class ClassificationError(Exception):
+    pass

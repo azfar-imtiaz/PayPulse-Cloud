@@ -1,6 +1,7 @@
 import boto3
 import logging
 from uuid import uuid4
+from decimal import Decimal
 from typing import Dict, Tuple
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -267,6 +268,120 @@ def update_last_retail_invoice_fetch(users_table, user_id: str) -> None:
         logging.info(f"Updated last_retail_invoice_fetch for user {user_id}: {current_timestamp}")
     except ClientError as e:
         raise DatabaseError(f"Error updating last_retail_invoice_fetch for user {user_id}") from e
+
+
+def update_last_retail_sweep_fetch(users_table, user_id: str) -> None:
+    """
+    Update user's last_retail_sweep_fetch timestamp to current time.
+
+    Separate field from last_retail_invoice_fetch so the broad-sweep classification
+    pipeline doesn't collide with the vendor-driven pipeline while both run in parallel.
+
+    Args:
+        users_table: DynamoDB table resource for Users
+        user_id: User ID
+    """
+    try:
+        current_timestamp = datetime.now(timezone.utc).isoformat()
+
+        users_table.update_item(
+            Key={'UserID': user_id},
+            UpdateExpression='SET last_retail_sweep_fetch = :timestamp',
+            ExpressionAttributeValues={
+                ':timestamp': current_timestamp
+            }
+        )
+
+        logging.info(f"Updated last_retail_sweep_fetch for user {user_id}: {current_timestamp}")
+    except ClientError as e:
+        raise DatabaseError(f"Error updating last_retail_sweep_fetch for user {user_id}") from e
+
+
+def _convert_floats_to_decimal(value):
+    """
+    Recursively convert native Python floats to Decimal, since boto3's DynamoDB
+    resource rejects float values outright ("Float types are not supported. Use
+    Decimal types instead."). str()-based conversion avoids binary floating-point
+    precision artifacts (e.g. Decimal(0.1) != Decimal("0.1")).
+    """
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, dict):
+        return {k: _convert_floats_to_decimal(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_convert_floats_to_decimal(v) for v in value]
+    return value
+
+
+def write_ledger_entry(ledger_table, user_id: str, message_id: str, status: str, **fields) -> None:
+    """
+    Write (or merge-update) a row in the RetailEmailClassificationLedger table.
+
+    Uses update_item with a dynamic SET expression rather than put_item, so a later call
+    (e.g. parse_retail_invoice writing the final 'extracted'/'duplicate_skipped' status)
+    merges onto the row instead of replacing it outright - preserving fields set by an
+    earlier call (noul_result, choice_category, choice_confidence, jev_token_usage, etc.)
+    that this later call doesn't know about or isn't re-supplying.
+
+    Args:
+        ledger_table: DynamoDB table resource for RetailEmailClassificationLedger
+        user_id: User ID
+        message_id: Gmail message ID
+        status: One of the ledger status enum values (e.g. 'pending', 'rejected_tier1',
+                 'parked_unclassifiable', 'parked_unsupported_category', 'duplicate_skipped',
+                 'extracted', 'extraction_failed')
+        **fields: Any additional ledger attributes to store, e.g. noul_result,
+                   choice_category, choice_confidence, used_gemini_fallback, jev_token_usage,
+                   order_id, retail_invoice_id, s3_path, error_detail
+    """
+    try:
+        updates = {
+            'status': status,
+            'classified_at': datetime.now(timezone.utc).isoformat(),
+        }
+        updates.update({k: _convert_floats_to_decimal(v) for k, v in fields.items() if v is not None})
+
+        set_parts = []
+        expression_names = {}
+        expression_values = {}
+        for key, value in updates.items():
+            placeholder_name = f"#{key}"
+            placeholder_value = f":{key}"
+            set_parts.append(f"{placeholder_name} = {placeholder_value}")
+            expression_names[placeholder_name] = key
+            expression_values[placeholder_value] = value
+
+        ledger_table.update_item(
+            Key={'UserID': user_id, 'MessageID': message_id},
+            UpdateExpression="SET " + ", ".join(set_parts),
+            ExpressionAttributeNames=expression_names,
+            ExpressionAttributeValues=expression_values,
+        )
+        logging.info(f"Wrote ledger entry for user {user_id}, message {message_id}: status={status}")
+    except ClientError as e:
+        raise DatabaseError(f"Error writing ledger entry for user {user_id}, message {message_id}") from e
+
+
+def get_ledger_entry(ledger_table, user_id: str, message_id: str) -> dict:
+    """
+    Fetch a single ledger row, if it exists.
+
+    Used by the sweep to skip messages that have already been classified in a prior run
+    (regardless of outcome), avoiding reclassification cost.
+
+    Args:
+        ledger_table: DynamoDB table resource for RetailEmailClassificationLedger
+        user_id: User ID
+        message_id: Gmail message ID
+
+    Returns:
+        The ledger item dict, or None if no row exists for this (user_id, message_id).
+    """
+    try:
+        response = ledger_table.get_item(Key={'UserID': user_id, 'MessageID': message_id})
+        return response.get('Item')
+    except ClientError as e:
+        raise DatabaseError(f"Error reading ledger entry for user {user_id}, message {message_id}") from e
 
 
 def delete_user_retail_invoices(retail_invoices_table, user_id: str) -> list:

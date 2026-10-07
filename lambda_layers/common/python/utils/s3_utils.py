@@ -195,7 +195,7 @@ def s3_file_exists(s3_client, bucket_name: str, s3_key: str) -> bool:
         raise S3Error(f"Error checking if S3 file exists: {s3_key}") from e
 
 
-def upload_html_to_s3(s3_client, bucket_name: str, s3_key: str, html_content: str) -> None:
+def upload_html_to_s3(s3_client, bucket_name: str, s3_key: str, html_content: str, metadata: dict = None) -> None:
     """
     Upload HTML content to S3
 
@@ -204,14 +204,22 @@ def upload_html_to_s3(s3_client, bucket_name: str, s3_key: str, html_content: st
         bucket_name: S3 bucket name
         s3_key: S3 object key
         html_content: HTML content as string
+        metadata: Optional dict of S3 object metadata (e.g. {'source': 'sweep', 'message_id': '...'}),
+                  surfaced on the object as x-amz-meta-* headers. Used by the sweep/classification
+                  pipeline to let parse_retail_invoice recognize which pipeline produced an upload,
+                  without changing the key scheme or behavior for callers that omit it.
     """
     try:
-        s3_client.put_object(
-            Bucket=bucket_name,
-            Key=s3_key,
-            Body=html_content.encode('utf-8'),
-            ContentType='text/html'
-        )
+        put_kwargs = {
+            'Bucket': bucket_name,
+            'Key': s3_key,
+            'Body': html_content.encode('utf-8'),
+            'ContentType': 'text/html'
+        }
+        if metadata:
+            put_kwargs['Metadata'] = metadata
+
+        s3_client.put_object(**put_kwargs)
         logging.info(f"Uploaded to S3: {s3_key}")
     except Exception as e:
         raise S3Error(f"Error uploading HTML to S3: {s3_key}") from e

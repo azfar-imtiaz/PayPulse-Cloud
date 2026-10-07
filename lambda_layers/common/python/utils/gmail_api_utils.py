@@ -330,6 +330,102 @@ def build_gmail_query(email_patterns: List[str], subject_keywords: List,
     return query
 
 
+def build_sweep_gmail_query(start_date: str, end_date: str, excluded_senders: List[str] = None) -> str:
+    """
+    Build a broad, date-bounded Gmail search query for the retail invoice sweep pipeline.
+
+    Unlike build_gmail_query, this has no from:/subject: scoping at all - that's exactly
+    the hardcoded vendor-driven behavior this pipeline replaces. Only cheap, non-LLM
+    excludes are applied to cut obvious noise before any classification call.
+
+    Args:
+        start_date: Start date "YYYY/MM/DD"
+        end_date: End date "YYYY/MM/DD"
+        excluded_senders: Email addresses to exclude via -from: clauses - for senders that
+            belong entirely to a different pipeline (e.g. kundservice@wallenstam.se is
+            already handled by fetch_latest_invoice/rental) and should never reach Jev
+            classification at all, rather than relying on the LLM to recognize and reject
+            them every time.
+
+    Returns:
+        Gmail query string, e.g.
+        "after:2026/09/01 before:2026/10/05 -in:chats -in:sent -in:drafts -in:trash -in:spam -from:kundservice@wallenstam.se"
+    """
+    query = f"after:{start_date} before:{end_date} -in:chats -in:sent -in:drafts -in:trash -in:spam"
+    for sender in (excluded_senders or []):
+        query += f" -from:{sender}"
+    logging.info(f"Built sweep Gmail query: {query}")
+    return query
+
+
+def get_email_metadata_light(service, message_id: str) -> Dict[str, Any]:
+    """
+    Fetch lightweight email metadata (Subject, From headers + snippet) without pulling
+    the full raw MIME body. Used by the sweep/classification pipeline to keep per-message
+    cost low across a much larger candidate pool than vendor-scoped fetching - full body
+    fetch (get_email_content) is deferred until a message survives classification and
+    needs Tier 3 extraction.
+
+    Args:
+        service: Gmail API service object
+        message_id: Gmail message ID
+
+    Returns:
+        Dict with keys: message_id, subject, sender, snippet
+
+    Raises:
+        GmailAPIError: If metadata retrieval fails
+    """
+    try:
+        message = service.users().messages().get(
+            userId='me',
+            id=message_id,
+            format='metadata',
+            metadataHeaders=['Subject', 'From']
+        ).execute()
+
+        headers = {h['name']: h['value'] for h in message.get('payload', {}).get('headers', [])}
+
+        return {
+            'message_id': message_id,
+            'subject': headers.get('Subject', ''),
+            'sender': headers.get('From', ''),
+            'snippet': message.get('snippet', ''),
+        }
+    except Exception as e:
+        raise GmailAPIError(f"Failed to get email metadata: {str(e)}") from e
+
+
+def derive_vendor_slug_from_sender(from_header: str) -> str:
+    """
+    Derive a vendor slug from a sender's email domain, for S3 key/filename purposes only.
+
+    This is NOT the authoritative vendor name - that comes from Gemini's extraction
+    output (vendor_name field) after Tier 3 parsing, same as today. This slug exists
+    purely because generate_retail_invoice_s3_key() needs a vendor_id string before
+    extraction has happened, now that VendorConfig isn't driving discovery.
+
+    Args:
+        from_header: Raw "From" header value, e.g. '"Elgiganten" <noreply@elgiganten.se>'
+
+    Returns:
+        A lowercase slug derived from the domain's second-level name, e.g. "elgiganten".
+        Falls back to "unknown-vendor" if no parseable email address is found.
+    """
+    import re
+
+    match = re.search(r'[\w.+-]+@([\w.-]+)', from_header or '')
+    if not match:
+        return "unknown-vendor"
+
+    domain = match.group(1).lower()
+    parts = domain.split('.')
+    # e.g. "noreply@elgiganten.se" -> "elgiganten"; "orders@mail.foodora.se" -> "foodora"
+    slug = parts[-2] if len(parts) >= 2 else parts[0]
+    slug = re.sub(r'[^a-z0-9]+', '-', slug).strip('-')
+    return slug or "unknown-vendor"
+
+
 def extract_html_from_email(email_message: Message) -> str:
     """
     Extract HTML body from email message
