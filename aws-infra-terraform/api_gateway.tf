@@ -350,6 +350,33 @@ resource "aws_lambda_permission" "delete_retail_invoice_api_permission" {
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
 
+# --- Endpoint for mark_duplicate_invoice ---
+
+# Connect APIGateway to mark_duplicate_invoice lambda function
+resource "aws_apigatewayv2_integration" "mark_duplicate_invoice_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.lambdas.mark_duplicate_invoice_invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path: POST /v1/invoices/retail/{invoice_id}/mark-duplicate)
+resource "aws_apigatewayv2_route" "mark_duplicate_invoice_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "POST /${var.api_version}/invoices/retail/{invoice_id}/mark-duplicate"
+  target    = "integrations/${aws_apigatewayv2_integration.mark_duplicate_invoice_integration.id}"
+}
+
+# Allow APIGateway to invoke the mark_duplicate_invoice lambda function
+resource "aws_lambda_permission" "mark_duplicate_invoice_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambdas.mark_duplicate_invoice_function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}
+
 # --- Endpoint for start_retail_invoice_backfill ---
 # NOTE: this endpoint is untested - implemented for completeness, see
 # lambdas/invoices/start_retail_invoice_backfill/main.py.

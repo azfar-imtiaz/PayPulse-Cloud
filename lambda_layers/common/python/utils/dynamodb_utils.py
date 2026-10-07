@@ -463,6 +463,7 @@ def get_user_retail_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
     try:
         response = dynamodb_table.query(
             KeyConditionExpression=Key('UserID').eq(user_id),
+            FilterExpression=Attr('is_duplicate').not_exists() | Attr('is_duplicate').eq(False),
             ProjectionExpression="InvoiceID, invoice_date, total_amount, currency, vendor_name, sub_type"
         )
         invoices = response.get('Items', [])
@@ -494,6 +495,7 @@ def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: 
         response = dynamodb_table.query(
             IndexName='sub_type-invoice_date-index',
             KeyConditionExpression=Key('UserID_SubType').eq(user_id_subtype),
+            FilterExpression=Attr('is_duplicate').not_exists() | Attr('is_duplicate').eq(False),
             ProjectionExpression="InvoiceID, invoice_date, total_amount, currency, vendor_name, sub_type"
         )
         invoices = response.get('Items', [])
@@ -502,6 +504,35 @@ def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: 
         return invoices_grouped, len(invoices)
     except Exception as e:
         raise DatabaseError(f"Error getting retail invoices for '{user_id}' with sub-type '{sub_type}'") from e
+
+
+def get_linked_duplicate_invoice_ids(dynamodb_table, user_id: str, invoice_id: str) -> list:
+    """
+    Find invoice IDs of any invoices marked as duplicates of the given invoice, so its
+    detail view can surface them (the merge UX: duplicates are hidden from the list but
+    linked from the original's detail).
+
+    No GSI exists on duplicate_of_invoice_id - per-user invoice volume is expected to be
+    small enough that a Query on the UserID key with a FilterExpression is acceptable.
+    Revisit with a dedicated GSI if this becomes a hot path.
+
+    Args:
+        dynamodb_table: DynamoDB table resource for RetailInvoices
+        user_id: User ID
+        invoice_id: The "original" invoice's ID to find duplicates of
+
+    Returns:
+        List of invoice IDs that are marked as duplicates of invoice_id
+    """
+    try:
+        response = dynamodb_table.query(
+            KeyConditionExpression=Key('UserID').eq(user_id),
+            FilterExpression=Attr('duplicate_of_invoice_id').eq(invoice_id),
+            ProjectionExpression="InvoiceID"
+        )
+        return [item['InvoiceID'] for item in response.get('Items', [])]
+    except Exception as e:
+        raise DatabaseError(f"Error getting linked duplicates for invoice '{invoice_id}'") from e
 
 
 def get_retail_invoice_details(detail_table, invoice_id: str) -> Dict:
@@ -570,6 +601,43 @@ def get_retail_invoice_counts(dynamodb_table, user_id: str) -> Dict[str, int]:
 
     except Exception as e:
         raise DatabaseError(f"Error getting retail invoice counts for '{user_id}'") from e
+
+
+def get_retail_invoice_for_user(table, user_id: str, invoice_id: str) -> Dict:
+    """
+    Fetch a single retail invoice from the RetailInvoices base table, validating that it
+    belongs to the given user.
+
+    Shared ownership-check helper used by delete and mark-duplicate retail invoice
+    Lambdas so this query isn't duplicated in each one.
+
+    Args:
+        table: DynamoDB table resource for RetailInvoices
+        user_id: Authenticated user ID
+        invoice_id: Invoice ID to fetch
+
+    Returns:
+        Invoice item dictionary
+
+    Raises:
+        NoInvoiceFoundError: If invoice not found or user doesn't own it
+        DatabaseError: If database error occurs
+    """
+    try:
+        response = table.query(
+            KeyConditionExpression=Key('UserID').eq(user_id) & Key('InvoiceID').eq(invoice_id)
+        )
+        invoices = response.get('Items', [])
+
+        if len(invoices) == 0:
+            logging.warning(f"No invoice found for user '{user_id}' and invoice '{invoice_id}'")
+            raise NoInvoiceFoundError("Invoice not found or access denied")
+
+        return invoices[0]
+    except NoInvoiceFoundError:
+        raise
+    except ClientError as e:
+        raise DatabaseError("Error validating invoice ownership") from e
 
 
 def get_retail_invoice_count_by_subtype(dynamodb_table, user_id: str, sub_type: str) -> Dict[str, int]:

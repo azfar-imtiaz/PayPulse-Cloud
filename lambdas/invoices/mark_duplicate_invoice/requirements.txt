@@ -1,0 +1,4 @@
+# No additional dependencies required
+# This Lambda uses shared Lambda layers:
+# - pyjwt_layer (for JWT authentication)
+# - utils_layer (for common utilities, decorators, responses, exceptions)

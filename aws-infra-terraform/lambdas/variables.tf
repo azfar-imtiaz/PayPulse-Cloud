@@ -235,6 +235,16 @@ variable "delete_retail_invoice_lambda_role_arn" {
   description = "IAM role ARN for delete_retail_invoice lambda"
 }
 
+variable "lambda_mark_duplicate_invoice" {
+  type        = string
+  description = "Path to mark_duplicate_invoice lambda function"
+}
+
+variable "mark_duplicate_invoice_lambda_role_arn" {
+  type        = string
+  description = "IAM role ARN for mark_duplicate_invoice lambda"
+}
+
 variable "lambda_start_retail_invoice_backfill" {
   type        = string
   description = "The lambda function for the API-triggered historical retail invoice backfill endpoint"

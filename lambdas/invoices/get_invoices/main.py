@@ -3,8 +3,10 @@ import json
 import boto3
 import logging
 
+from boto3.dynamodb.conditions import Key, Attr
+
 from utils.decorators import require_auth
-from utils.dynamodb_utils import get_user_rental_invoices, get_user_retail_invoices, get_user_retail_invoices_by_subtype, get_retail_invoice_details, get_retail_invoice_counts, get_retail_invoice_count_by_subtype
+from utils.dynamodb_utils import get_user_rental_invoices, get_user_retail_invoices, get_user_retail_invoices_by_subtype, get_retail_invoice_details, get_retail_invoice_counts, get_retail_invoice_count_by_subtype, get_linked_duplicate_invoice_ids
 from utils.s3_utils import get_valid_retail_categories
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.exceptions import DatabaseError, NoInvoiceFoundError
@@ -112,11 +114,15 @@ def lambda_handler(event, context, user_id):
                     detail_table = dynamodb.Table(detail_table_name)
 
                     invoice_details = get_retail_invoice_details(detail_table, invoice_id)
+                    linked_duplicate_invoice_ids = get_linked_duplicate_invoice_ids(
+                        retail_invoices_table, user_id=user_id, invoice_id=invoice_id
+                    )
 
                     return success_response(
                         message=f"Retail {invoice_subtype} invoice details retrieved successfully!",
                         data={
-                            "invoiceDetails": invoice_details
+                            "invoiceDetails": invoice_details,
+                            "linkedDuplicateInvoiceIds": linked_duplicate_invoice_ids
                         }
                     )
                 elif counts_param:

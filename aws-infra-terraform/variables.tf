@@ -274,6 +274,12 @@ variable "lambda_delete_retail_invoice" {
   default     = "delete_retail_invoice"
 }
 
+variable "lambda_mark_duplicate_invoice" {
+  type        = string
+  description = "The lambda function for marking a retail invoice as a duplicate of another"
+  default     = "mark_duplicate_invoice"
+}
+
 variable "lambda_start_retail_invoice_backfill" {
   type        = string
   description = "The lambda function for the API-triggered historical retail invoice backfill endpoint"
