@@ -35,8 +35,22 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │       ├── send_invoice_notification
 │           ├── main.py
 │           ├── requirements.txt
-│       ├── fetch_retail_invoices
+│       ├── fetch_retail_invoices          # Vendor-driven retail fetch (paused, see below)
 │           ├── lambda_function.py
+│           ├── requirements.txt
+│       ├── fetch_and_classify_retail_invoices  # Broad Gmail sweep + Jev classification
+│           ├── lambda_function.py
+│           ├── jev_client.py
+│           ├── gemini_fallback.py
+│           ├── requirements.txt
+│       ├── parse_retail_invoice           # Gemini extraction, triggered by S3 upload
+│           ├── main.py
+│           ├── requirements.txt
+│       ├── delete_retail_invoice
+│           ├── main.py
+│           ├── requirements.txt
+│       ├── start_retail_invoice_backfill  # API trigger for historical backfill (untested)
+│           ├── main.py
 │           ├── requirements.txt
 │   ├── users
 │       ├── login_user
@@ -75,6 +89,10 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │       ├── python
 │           ├── jwt
 │               ├── ... jwt package Python scripts
+│   ├── jev                                # TypeSafe AI (Jev) classification SDK
+│   ├── gemini_parsers                     # Per-category Gemini extraction parsers
+│   ├── google_genai                       # Google Generative AI SDK
+│   ├── google_api                         # Google API client libraries
 ├── aws-infra-terraform
 │   ├── main.tf			            # Root module definition with IAM and Lambda modules
 │   ├── variables.tf		            # Global input variables
@@ -87,7 +105,8 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │   ├── sns.tf                   	    # SNS topic for notifications
 │   ├── cloudwatch.tf            	    # CloudWatch log group definitions
 │   ├── cognito.tf               	    # Cognito identity pool
-│   ├── eventbridge.tf           	    # Scheduled EventBridge trigger
+│   ├── eventbridge.tf           	    # Scheduled EventBridge trigger (incl. retail sweep)
+│   ├── stepfunctions.tf                   # Historical retail invoice backfill orchestration
 │   ├── api_gateway.tf           	    # API Gateway configuration for all endpoints
 │   ├── s3.tf                              # S3 buckets and notifications
 │   ├── iam/                               # IAM module (organized by resource type)
@@ -221,7 +240,11 @@ There are several lambda functions, and some of them are linked, in a way. The e
 |    Store Gmail tokens     |   `gmail_store_tokens`      | API Gateway | This function stores OAuth 2.0 tokens received from iOS app for Gmail API access                                        | Zip upload to S3 bucket |
 |    Ingest all rental invoices    |      `fetch_invoices`       | API Gateway | This function fetches all rental invoices (PDF) from the email inbox                                                           | Zip upload to S3 bucket |
 |   Ingest latest rental invoice   |   `fetch_latest_invoice`    | EventBridge (every weekday 8:30 AM) | This function fetches the rental invoice for the current month, if available                                             | Zip upload to S3 bucket |
-|    Ingest retail invoices    |   `fetch_retail_invoices`   | API Gateway | This function fetches retail invoices (HTML) from Gmail based on active vendor configurations. Supports custom date ranges                                        | Zip upload to S3 bucket |
+|    Ingest retail invoices (vendor-driven)    |   `fetch_retail_invoices`   | API Gateway, EventBridge (weekly, **currently paused**) | This function fetches retail invoices (HTML) from Gmail based on active vendor configurations. Supports custom date ranges. Superseded by the Jev sweep pipeline below - its cron is disabled (`weekly_retail_trigger_enabled = false`), but the Lambda, IAM role, and API route stay live | Zip upload to S3 bucket |
+| Sweep + classify retail invoices | `fetch_and_classify_retail_invoices` | EventBridge (twice daily) + manual backfill mode | Broadly sweeps Gmail (no vendor scoping), classifies each candidate email with a single combined Jev call, and hands confirmed candidates to `parse_retail_invoice` via a tagged S3 upload. See "Automated Retail Invoice Discovery" below | Zip upload to S3 bucket |
+| Parse retail invoice | `parse_retail_invoice` | S3 (retail invoice upload) | Extracts structured fields from a retail invoice HTML using Gemini, and upserts the result into DynamoDB keyed on `(vendor, order_id)` (or `(vendor, day)` when `order_id` isn't resolvable) | Zip upload to S3 bucket |
+| Delete retail invoice | `delete_retail_invoice` | API Gateway | Hard-deletes a retail invoice (DynamoDB + S3) for the authenticated user | Zip upload to S3 bucket |
+| Start retail invoice backfill | `start_retail_invoice_backfill` | API Gateway | **Untested.** Starts a historical backfill (Step Functions execution) for the authenticated caller. Implemented for completeness ahead of a future app-facing feature | Zip upload to S3 bucket |
 |       Parse invoice       |       `parse_invoice`       | S3 (rental invoice upload) | This function parses a rental invoice PDF and stores the information in DynamoDB                                             | Docker image pushed to ECR repository |
 |        Get invoice        |    `get_rental_invoice`     | API Gateway | This function retrieves the full invoice details for a given invoice ID. **This is not being used in the app right now** | Zip upload to S3 bucket |
 |       Get invoices        |    `get_rental_invoices`    | API Gateway | This function retrieves and returns all rental invoices for a logged-in user                                                    | Zip upload to S3 bucket |
@@ -262,7 +285,9 @@ The following endpoints are deployed in PayPulseAPI via API Gateway, each of the
 |    Store Gmail tokens    |   gmail_store_tokens     |
 | Fetch all rental invoices|     fetch_invoices       |
 |Fetch latest rental invoice| fetch_latest_invoice    |
-| Fetch retail invoices    | fetch_retail_invoices    |
+| Fetch retail invoices (vendor-driven, paused)   | fetch_retail_invoices    |
+| Delete retail invoice    | delete_retail_invoice    |
+| Start retail invoice backfill (untested) | start_retail_invoice_backfill |
 |      Get invoices        |  get_rental_invoices     |
 |   Get invoice details    |   get_rental_invoice     |
 |       Delete user        |      delete_user         |
@@ -289,7 +314,11 @@ The routes are structured like this:
 │               ├── POST                   # Fetch latest rental invoice
 │       ├── /retail
 │           ├── /ingest
-│               ├── POST                   # Fetch retail invoices (optional date range in body)
+│               ├── POST                   # Fetch retail invoices (vendor-driven, paused)
+│           ├── /{invoice_id}
+│               ├── DELETE                 # Delete a retail invoice
+│           ├── /backfill
+│               ├── POST                   # Start historical backfill (untested)
 │   ├── /user
 │       ├── /me
 │           ├── GET
@@ -297,6 +326,60 @@ The routes are structured like this:
 ```
 
 JWT token based authentication has been implemented here. The login call returns an access token, which must be attached to the header of all other API calls (apart from sign-up of course). This allows the lambda function against the API call to retrieve the user ID from the token and perform the operation for that specific user.
+
+## Automated Retail Invoice Discovery
+
+Retail invoice fetching originally depended on manually configuring `VendorConfig`
+entries (sender/subject patterns) per vendor before any email from that vendor could be
+discovered. This has been replaced by a broad, classification-driven pipeline that
+doesn't need vendor onboarding at all.
+
+### Pipeline
+
+1. **Sweep** (`fetch_and_classify_retail_invoices`, runs twice daily via EventBridge) -
+   searches Gmail with only date bounds and a few cheap exclusions (`-in:chats -in:sent
+   -in:drafts -in:trash -in:spam`, plus specific senders already owned by another
+   pipeline, e.g. the rental invoice sender), using gap-filling windows so a missed run
+   never creates a silent coverage hole.
+2. **Classify** - each candidate's lightweight metadata (subject/sender/snippet, not the
+   full body) is sent to [Jev](https://typesafe.ai) (TypeSafe AI) in a single combined
+   call: a `noul` question ("is this an invoice?") and a `choice` question (which of the
+   8 retail categories). Low-confidence or unresolved results fall back to a small
+   Gemini call before being parked as unclassifiable.
+3. **Ledger** - every classification outcome, regardless of result, is recorded in
+   `RetailEmailClassificationLedger` (see DynamoDB section above).
+4. **Extract** - confirmed candidates are uploaded to S3 (same key scheme as the old
+   pipeline, tagged with sweep-origin metadata), which triggers the existing
+   `parse_retail_invoice` Lambda unchanged for Gemini extraction.
+5. **Upsert dedup** - `parse_retail_invoice` upserts on `(vendor, order_id)`, falling
+   back to `(vendor, day)` when `order_id` isn't resolvable (e.g. AWS billing emails).
+   Invoices with `total_amount == 0` (Gemini's signal for "no amount found," not a
+   genuine free purchase) are rejected rather than inserted, since they're almost always
+   non-invoice lifecycle emails (shipping/delivery confirmations) that passed the `noul`
+   check incorrectly.
+
+The old vendor-driven pipeline (`fetch_retail_invoices`) is paused (its EventBridge
+cron disabled) but left fully deployed for comparison/rollback.
+
+### Historical backfill
+
+A `retail-invoice-backfill` Step Functions state machine fans a list of bounded,
+non-overlapping date windows (batches) out to `fetch_and_classify_retail_invoices`'s
+backfill mode, running several concurrently (`MaxConcurrency`). Each batch is capped at
+~6 months and requires an explicit `user_id` - a single Lambda invocation processes
+exactly one user's inbox over one bounded window, never a table scan. Batch failures
+are isolated (`ToleratedFailurePercentage`) so one oversized quarter doesn't abort the
+whole run, and a batch that hits the Lambda's 900s timeout is automatically retried -
+since the classification ledger already tracks per-message progress, a retry only has
+to process whatever's left, so dense historical quarters converge on completion within
+a few attempts.
+
+Run via `scripts/start_historical_retail_backfill.py --user-id <id>` (defaults: 2020
+onward, 3-month batches), or via the `POST /v1/invoices/retail/backfill` API endpoint
+(**untested** - implemented for completeness ahead of a future app-facing "backfill my
+history" button; see the `TODO` in
+`lambdas/invoices/start_retail_invoice_backfill/main.py` for the still-open question of
+how a caller would learn when their backfill finishes).
 
 ## Gmail OAuth 2.0 Integration
 
@@ -404,9 +487,22 @@ Each uses `InvoiceID` as partition key, PAY_PER_REQUEST billing
 - Partition key: `vendor_id`
 - Billing mode: Pay per request
 - Contains: vendor_name, invoice_sub_type, email_patterns, subject_keywords, parser_type, active status, etc.
-- Purpose: Configuration for automated retail invoice fetching
+- Purpose: Configuration for the paused vendor-driven retail invoice fetching. Its role
+  shrinks over time to optional per-vendor Gemini prompt tuning now that discovery is
+  vendor-agnostic (see "Automated Retail Invoice Discovery" below)
 
-**11. Users**
+**11. RetailEmailClassificationLedger**
+- Partition key: `UserID`
+- Sort key: `MessageID` (Gmail message ID)
+- GSI: `status-classified_at-index`
+- Billing mode: Pay per request
+- Contains: classification status, Jev `noul`/`choice` results + confidence, token usage,
+  resolved `order_id`, linked `retail_invoice_id`/`s3_path`
+- Purpose: Records every email the sweep pipeline classifies, regardless of outcome. Acts
+  as the sweep's own dedup check (skip already-classified messages) and as a growing
+  labeled dataset for a possible future self-hosted classifier
+
+**12. Users**
 - Partition key: `UserID`
 - GSI: `Email-index`
 - Billing mode: Pay per request
@@ -449,6 +545,23 @@ I am currently using CloudWatch for monitoring for the lambda functions. Current
 
 ## Recent Updates
 
+### Automated Retail Invoice Discovery via Jev Classification (October 2026)
+✅ **Replaced vendor-scoped retail fetching with a broad sweep + classification pipeline:**
+- Added `fetch_and_classify_retail_invoices` Lambda: date-bounded Gmail sweep, no vendor
+  scoping, classified via a single combined Jev (TypeSafe AI) call per candidate
+- Added `RetailEmailClassificationLedger` table, tracking every classification outcome
+  (used for dedup and as a growing labeled dataset)
+- Switched `parse_retail_invoice`'s DB write path from insert-only to upsert, keyed on
+  `(vendor, order_id)` with a `(vendor, day)` fallback
+- Added a zero/missing-amount filter to reject non-invoice lifecycle emails that
+  incorrectly passed classification
+- Implemented the previously-stubbed `grocery` and `utility` category parsers
+- Paused the old vendor-driven `fetch_retail_invoices` cron (kept deployed for rollback)
+- Added a `retail-invoice-backfill` Step Functions state machine + CLI script for
+  bounded, concurrent historical backfill, with automatic batch-level retry/isolation
+- Added an (untested) `POST /v1/invoices/retail/backfill` API endpoint for a future
+  app-facing backfill feature
+
 ### Retail Invoice Support (October 2025)
 ✅ **Implemented retail invoice fetching infrastructure:**
 - Created 9 new DynamoDB tables for retail invoices (1 base table + 8 detail tables)
@@ -473,7 +586,13 @@ I am currently using CloudWatch for monitoring for the lambda functions. Current
 - Travel (transportation: flights, trains, buses, etc.)
 
 ## Next Steps
-- **Retail Invoice Parsing**: Implement HTML parsers for each retail invoice sub-type
+- **Backfill completion notification**: `POST /v1/invoices/retail/backfill` is
+  fire-and-forget today - no way for a caller to learn when the backfill finishes. See
+  the `TODO` in `lambdas/invoices/start_retail_invoice_backfill/main.py` for the two
+  options considered (a polling status endpoint, or a push notification via the
+  existing SNS topic)
+- **Test the backfill API endpoint**: it has not been exercised via a real
+  authenticated request yet
 - **Vendor Management**: Migrate vendor logos to Terraform-managed S3 bucket
 - **API Expansion**: Add GET endpoints for retail invoices (similar to rental endpoints)
 - **IAM Migration**: Move AWS-managed policies to Terraform-managed
