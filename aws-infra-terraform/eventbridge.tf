@@ -16,7 +16,7 @@ resource "aws_cloudwatch_event_target" "daily_lambda_target" {
 resource "aws_cloudwatch_event_rule" "weekly_retail_trigger" {
   name                = var.weekly_retail_trigger
   schedule_expression = var.weekly_retail_trigger_schedule
-  is_enabled          = true
+  is_enabled          = var.weekly_retail_trigger_enabled
 }
 
 # Target for weekly retail invoice trigger

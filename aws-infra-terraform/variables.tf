@@ -164,6 +164,12 @@ variable "weekly_retail_trigger_schedule" {
   default     = "cron(0 18 ? * SUN *)" # This is 6:00 PM UTC every Sunday
 }
 
+variable "weekly_retail_trigger_enabled" {
+  type        = bool
+  description = "Whether the old vendor-driven retail invoice fetch cron is active. Paused in favor of the new Jev-classification sweep pipeline (fetch_and_classify_retail_invoices)."
+  default     = false
+}
+
 variable "retail_sweep_trigger" {
   type        = string
   description = "The name of the retail invoice sweep (Jev classification pipeline) trigger"
