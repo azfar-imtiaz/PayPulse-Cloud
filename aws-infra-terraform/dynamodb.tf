@@ -115,6 +115,11 @@ resource "aws_dynamodb_table" "retail_invoices" {
     type = "S"
   }
 
+  attribute {
+    name = "vendor_order_key"
+    type = "S"
+  }
+
   # GSI-1: For date-based queries
   global_secondary_index {
     name            = "invoice_date-index"
@@ -128,6 +133,15 @@ resource "aws_dynamodb_table" "retail_invoices" {
     name            = "sub_type-invoice_date-index"
     hash_key        = "UserID_SubType"
     range_key       = "invoice_date"
+    projection_type = "ALL"
+  }
+
+  # GSI-3: For dedup lookups by (vendor, order_id). Sparse index - only rows written with
+  # vendor_order_key (new sweep pipeline) appear here; pre-existing rows are not indexed.
+  global_secondary_index {
+    name            = "vendor-order-index"
+    hash_key        = "UserID"
+    range_key       = "vendor_order_key"
     projection_type = "ALL"
   }
 
@@ -312,6 +326,57 @@ resource "aws_dynamodb_table" "travel_invoices" {
   attribute {
     name = "InvoiceID"
     type = "S"
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = {
+    Environment = "production"
+  }
+}
+
+# Retail Email Classification Ledger table
+
+resource "aws_dynamodb_table" "retail_email_classification_ledger" {
+  name         = var.retail_email_classification_ledger_table
+  billing_mode = "PAY_PER_REQUEST"
+
+  hash_key  = "UserID"
+  range_key = "MessageID"
+
+  attribute {
+    name = "UserID"
+    type = "S"
+  }
+
+  attribute {
+    name = "MessageID"
+    type = "S"
+  }
+
+  attribute {
+    name = "status"
+    type = "S"
+  }
+
+  attribute {
+    name = "classified_at"
+    type = "S"
+  }
+
+  # GSI: supports periodic review queries (e.g. all parked_unsupported_category rows,
+  # all extraction_failed rows from this week)
+  global_secondary_index {
+    name            = "status-classified_at-index"
+    hash_key        = "status"
+    range_key       = "classified_at"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = true
   }
 
   server_side_encryption {

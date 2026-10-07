@@ -26,6 +26,21 @@ resource "aws_cloudwatch_event_target" "weekly_retail_target" {
   arn       = module.lambdas.fetch_retail_invoices_arn
 }
 
+# Sweep trigger for fetch_and_classify_retail_invoices lambda function (new, independent
+# of the weekly vendor-driven retail trigger above - both can run in parallel during testing)
+resource "aws_cloudwatch_event_rule" "retail_sweep_trigger" {
+  name                = var.retail_sweep_trigger
+  schedule_expression = var.retail_sweep_trigger_schedule
+  is_enabled          = true
+}
+
+# Target for retail invoice sweep trigger
+resource "aws_cloudwatch_event_target" "retail_sweep_target" {
+  rule      = aws_cloudwatch_event_rule.retail_sweep_trigger.name
+  target_id = "RetailInvoiceSweepTarget"
+  arn       = module.lambdas.fetch_and_classify_retail_invoices_arn
+}
+
 # DynamoDB trigger event for send_invoice_notification lambda function
 resource "aws_lambda_event_source_mapping" "send_invoice_notification_trigger" {
   # event_source_arn  = "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.invoices_table}/stream/2024-11-15T10:18:19.028"

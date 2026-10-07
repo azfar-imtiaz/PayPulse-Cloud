@@ -10,7 +10,7 @@ resource "aws_lambda_function" "fetch_retail_invoices" {
   role          = var.fetch_retail_invoices_lambda_role_arn
   handler       = "lambda_function.lambda_handler"
   runtime       = var.python_runtime
-  timeout       = 900  # 15 minutes
+  timeout       = 900 # 15 minutes
   memory_size   = 512
 
   s3_bucket         = var.lambda_bucket_id

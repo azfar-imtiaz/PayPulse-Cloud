@@ -19,6 +19,11 @@ variable "lambda_fetch_retail_invoices" {
   description = "The lambda function for fetching retail invoices from Gmail"
 }
 
+variable "lambda_fetch_and_classify_retail_invoices" {
+  type        = string
+  description = "The lambda function for the broad Gmail sweep + Jev classification retail invoice discovery pipeline"
+}
+
 variable "lambda_fetch_latest_rental_invoice" {
   type        = string
   description = "The lambda function for fetching the latest invoice from the email inbox"
@@ -137,6 +142,12 @@ variable "gemini_api_key_secret_string" {
   sensitive   = true
 }
 
+variable "jev_api_key_secret_string" {
+  type        = string
+  description = "The Jev (TypeSafe AI) API key for retail email classification"
+  sensitive   = true
+}
+
 
 variable "sns_topic_arn" {
   type        = string
@@ -151,6 +162,11 @@ variable "daily_lambda_trigger_arn" {
 variable "weekly_retail_trigger_arn" {
   type        = string
   description = "The ARN of the weekly retail invoice trigger event rule"
+}
+
+variable "retail_sweep_trigger_arn" {
+  type        = string
+  description = "The ARN of the retail invoice sweep trigger event rule"
 }
 
 # IAM role ARNs from IAM module
@@ -192,6 +208,11 @@ variable "gmail_store_tokens_lambda_role_arn" {
 variable "fetch_retail_invoices_lambda_role_arn" {
   type        = string
   description = "The ARN of the fetch retail invoices lambda role"
+}
+
+variable "fetch_and_classify_retail_invoices_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the fetch and classify retail invoices (sweep) lambda role"
 }
 
 variable "parse_retail_invoice_lambda_role_arn" {
@@ -258,4 +279,9 @@ variable "misc_invoices_table_name" {
 variable "travel_invoices_table_name" {
   type        = string
   description = "The name of the travel invoices DynamoDB table"
+}
+
+variable "retail_email_classification_ledger_table_name" {
+  type        = string
+  description = "The name of the RetailEmailClassificationLedger DynamoDB table"
 }

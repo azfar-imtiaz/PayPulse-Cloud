@@ -129,6 +129,11 @@ output "fetch_retail_invoices_arn" {
   value       = aws_lambda_function.fetch_retail_invoices.arn
 }
 
+output "fetch_and_classify_retail_invoices_arn" {
+  description = "ARN of the fetch and classify retail invoices (sweep) lambda function"
+  value       = aws_lambda_function.fetch_and_classify_retail_invoices.arn
+}
+
 output "parse_retail_invoice_function_name" {
   description = "Name of the parse retail invoice lambda function"
   value       = aws_lambda_function.parse_retail_invoice.function_name

@@ -101,3 +101,8 @@ variable "vendor_config_table_arn" {
   type        = string
   description = "ARN of VendorConfig table"
 }
+
+variable "retail_email_classification_ledger_table_arn" {
+  type        = string
+  description = "ARN of RetailEmailClassificationLedger table"
+}

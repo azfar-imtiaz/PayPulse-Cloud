@@ -99,3 +99,13 @@ output "vendor_config_table_arn" {
   value       = aws_dynamodb_table.vendor_config.arn
   description = "VendorConfig table ARN"
 }
+
+output "retail_email_classification_ledger_table_name" {
+  value       = aws_dynamodb_table.retail_email_classification_ledger.name
+  description = "RetailEmailClassificationLedger table name"
+}
+
+output "retail_email_classification_ledger_table_arn" {
+  value       = aws_dynamodb_table.retail_email_classification_ledger.arn
+  description = "RetailEmailClassificationLedger table ARN"
+}

@@ -17,19 +17,19 @@ resource "aws_lambda_function" "delete_user" {
 
   environment {
     variables = {
-      USERS_TABLE                       = var.users_table_name
-      INVOICES_TABLE                    = var.rental_invoices_table_name
-      BUCKET_NAME                       = var.invoices_bucket_name
-      JWT_SECRET                        = var.jwt_secret_version_secret_string
-      RETAIL_INVOICES_TABLE             = var.retail_invoices_table_name
-      FOOD_DELIVERY_INVOICES_TABLE      = var.food_delivery_invoices_table_name
-      CLOTHING_INVOICES_TABLE           = var.clothing_invoices_table_name
-      TECHNOLOGY_INVOICES_TABLE         = var.technology_invoices_table_name
-      SUBSCRIPTION_INVOICES_TABLE       = var.subscription_invoices_table_name
-      GROCERY_INVOICES_TABLE            = var.grocery_invoices_table_name
-      MISC_UTILITY_INVOICES_TABLE       = var.misc_utility_invoices_table_name
-      MISC_INVOICES_TABLE               = var.misc_invoices_table_name
-      TRAVEL_INVOICES_TABLE             = var.travel_invoices_table_name
+      USERS_TABLE                  = var.users_table_name
+      INVOICES_TABLE               = var.rental_invoices_table_name
+      BUCKET_NAME                  = var.invoices_bucket_name
+      JWT_SECRET                   = var.jwt_secret_version_secret_string
+      RETAIL_INVOICES_TABLE        = var.retail_invoices_table_name
+      FOOD_DELIVERY_INVOICES_TABLE = var.food_delivery_invoices_table_name
+      CLOTHING_INVOICES_TABLE      = var.clothing_invoices_table_name
+      TECHNOLOGY_INVOICES_TABLE    = var.technology_invoices_table_name
+      SUBSCRIPTION_INVOICES_TABLE  = var.subscription_invoices_table_name
+      GROCERY_INVOICES_TABLE       = var.grocery_invoices_table_name
+      MISC_UTILITY_INVOICES_TABLE  = var.misc_utility_invoices_table_name
+      MISC_INVOICES_TABLE          = var.misc_invoices_table_name
+      TRAVEL_INVOICES_TABLE        = var.travel_invoices_table_name
     }
   }
 

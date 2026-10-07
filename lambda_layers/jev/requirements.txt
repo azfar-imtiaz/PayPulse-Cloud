@@ -1,0 +1,2 @@
+# TypeSafe AI (Jev) classification SDK
+typesafe-sdk

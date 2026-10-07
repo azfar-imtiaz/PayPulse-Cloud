@@ -28,3 +28,14 @@ resource "aws_secretsmanager_secret_version" "gemini_api_key_value" {
   secret_id     = aws_secretsmanager_secret.gemini_api_key.id
   secret_string = var.gemini_api_key
 }
+
+# Jev (TypeSafe AI) API key for retail email classification
+resource "aws_secretsmanager_secret" "jev_api_key" {
+  name        = "jev/api-key"
+  description = "API key for Jev (TypeSafe AI) used to classify retail emails during the Gmail sweep"
+}
+
+resource "aws_secretsmanager_secret_version" "jev_api_key_value" {
+  secret_id     = aws_secretsmanager_secret.jev_api_key.id
+  secret_string = var.jev_api_key
+}

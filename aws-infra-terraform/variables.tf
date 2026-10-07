@@ -132,6 +132,12 @@ variable "gemini_api_key" {
   sensitive   = true
 }
 
+variable "jev_api_key" {
+  description = "API key for Jev (TypeSafe AI) used to classify retail emails during the Gmail sweep."
+  type        = string
+  sensitive   = true
+}
+
 # EventBridge
 
 variable "daily_lambda_trigger" {
@@ -156,6 +162,18 @@ variable "weekly_retail_trigger_schedule" {
   type        = string
   description = "The schedule expression for weekly retail invoice trigger"
   default     = "cron(0 18 ? * SUN *)" # This is 6:00 PM UTC every Sunday
+}
+
+variable "retail_sweep_trigger" {
+  type        = string
+  description = "The name of the retail invoice sweep (Jev classification pipeline) trigger"
+  default     = "RetailInvoiceSweepTrigger"
+}
+
+variable "retail_sweep_trigger_schedule" {
+  type        = string
+  description = "The schedule expression for the retail invoice sweep trigger"
+  default     = "cron(0 6,18 * * ? *)" # Twice daily: 6:00 AM and 6:00 PM UTC
 }
 
 # Lambda
@@ -250,6 +268,12 @@ variable "lambda_delete_retail_invoice" {
   default     = "delete_retail_invoice"
 }
 
+variable "lambda_fetch_and_classify_retail_invoices" {
+  type        = string
+  description = "The lambda function for the broad Gmail sweep + Jev classification retail invoice discovery pipeline"
+  default     = "fetch_and_classify_retail_invoices"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"
@@ -338,4 +362,10 @@ variable "vendor_config_table" {
   type        = string
   description = "The DynamoDB table for vendor configuration"
   default     = "VendorConfig"
+}
+
+variable "retail_email_classification_ledger_table" {
+  type        = string
+  description = "The DynamoDB table recording every email classification outcome from the automated retail invoice sweep pipeline"
+  default     = "RetailEmailClassificationLedger"
 }

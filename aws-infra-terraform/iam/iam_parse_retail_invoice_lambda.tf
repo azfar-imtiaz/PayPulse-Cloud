@@ -44,6 +44,15 @@ resource "aws_iam_policy" "parse_retail_invoice_lambda_policy" {
           "arn:aws:s3:::${var.invoices_bucket_name}/*"
         ]
       },
+      # S3 - ListBucket required for HeadObject to return 404 instead of 403 (used to read
+      # sweep-origin object metadata via get_sweep_source_metadata())
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:ListBucket"
+        ],
+        Resource = "arn:aws:s3:::${var.invoices_bucket_name}"
+      },
       {
         Effect = "Allow",
         Action = [
@@ -52,6 +61,25 @@ resource "aws_iam_policy" "parse_retail_invoice_lambda_policy" {
         Resource = [
           "arn:aws:secretsmanager:${var.aws_region}:*:secret:gemini-api-key*"
         ]
+      },
+      # DynamoDB - vendor-order-index GSI query for upsert dedup lookups
+      {
+        Effect = "Allow",
+        Action = [
+          "dynamodb:Query"
+        ],
+        Resource = "${var.retail_invoices_table_arn}/index/vendor-order-index"
+      },
+      # DynamoDB - RetailEmailClassificationLedger read/write (only used when this Lambda
+      # is wired into the sweep pipeline; harmless if unused by the vendor-driven path)
+      {
+        Effect = "Allow",
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ],
+        Resource = var.retail_email_classification_ledger_table_arn
       }
     ]
   })
