@@ -88,6 +88,15 @@ resource "aws_iam_user_policy_attachment" "attach_api_gateway_policy" {
   policy_arn = aws_iam_policy.api_gateway_policy.arn
 }
 
+# attach AWS managed Step Functions policy directly to the user (same reasoning as
+# above - the wallenstam_group is already at AWS's 10-managed-policy-per-group limit).
+# Needed so Terraform itself can create/validate/update the retail-invoice-backfill
+# state machine (states:ValidateStateMachineDefinition etc.).
+resource "aws_iam_user_policy_attachment" "attach_step_functions_policy" {
+  user       = aws_iam_user.wallenstam_user.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
+}
+
 # === Defining the roles ===
 
 # ROLE 1: The app identity role

@@ -96,9 +96,16 @@ CATEGORY_DESCRIPTIONS = {
 
 DEFAULT_SWEEP_DAYS = 30
 
+# Hard cap on a single backfill batch's window, enforced before any Gmail/Jev/Gemini
+# work happens. Historical ranges (e.g. 2020-now) must be split into multiple batches by
+# the caller (see the retail-invoice-backfill Step Functions state machine) - this Lambda
+# deliberately refuses to do that splitting itself, to keep each invocation's wall-clock
+# time well under the 900s Lambda timeout.
+MAX_BACKFILL_WINDOW_DAYS = 186
+
 
 def determine_sweep_date_range(user: dict, default_days: int = DEFAULT_SWEEP_DAYS,
-                                backfill_start_date: str = None) -> tuple:
+                                backfill_start_date: str = None, backfill_end_date: str = None) -> tuple:
     """
     Determine the sweep's date window using gap-filling semantics: a missed run must not
     create a silent coverage hole, so the window always covers the full elapsed gap since
@@ -108,6 +115,10 @@ def determine_sweep_date_range(user: dict, default_days: int = DEFAULT_SWEEP_DAY
         user: User dict from DynamoDB
         default_days: Fallback window size (days) when no prior sweep timestamp exists
         backfill_start_date: Optional override "YYYY-MM-DD" for manual backfill mode
+        backfill_end_date: Optional override "YYYY-MM-DD" bounding the end of a backfill
+            window - only meaningful when backfill_start_date is also set. Without this,
+            backfill mode would always sweep to "now", making bounded historical batches
+            (e.g. one quarter of 2020) impossible.
 
     Returns:
         Tuple of (start_date, end_date) in Gmail format "YYYY/MM/DD"
@@ -117,6 +128,8 @@ def determine_sweep_date_range(user: dict, default_days: int = DEFAULT_SWEEP_DAY
     if backfill_start_date:
         start_dt = datetime.strptime(backfill_start_date, "%Y-%m-%d")
         start_date = start_dt.strftime("%Y/%m/%d")
+        if backfill_end_date:
+            end_date = datetime.strptime(backfill_end_date, "%Y-%m-%d").strftime("%Y/%m/%d")
         logger.info(f"Backfill mode: sweeping from {start_date} to {end_date}")
         return start_date, end_date
 
@@ -256,7 +269,8 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
     return 'uploaded_for_extraction'
 
 
-def process_user_sweep(user: dict, backfill_start_date: str = None, max_pages: int = None) -> dict:
+def process_user_sweep(user: dict, backfill_start_date: str = None, backfill_end_date: str = None,
+                        max_pages: int = None) -> dict:
     """
     Run the full sweep + classify flow for a single user.
     """
@@ -268,7 +282,8 @@ def process_user_sweep(user: dict, backfill_start_date: str = None, max_pages: i
     noul_threshold = float(os.environ.get('NOUL_THRESHOLD', '0.5'))
     choice_confidence_threshold = float(os.environ.get('CHOICE_CONFIDENCE_THRESHOLD', '0.6'))
 
-    start_date, end_date = determine_sweep_date_range(user, backfill_start_date=backfill_start_date)
+    start_date, end_date = determine_sweep_date_range(user, backfill_start_date=backfill_start_date,
+                                                        backfill_end_date=backfill_end_date)
 
     oauth_data = get_oauth_tokens(user_id, region=os.environ['REGION'])
     gmail_service = create_gmail_service(
@@ -315,6 +330,25 @@ def process_user_sweep(user: dict, backfill_start_date: str = None, max_pages: i
     }
 
 
+def process_single_user_backfill(user_id: str, start_date: str, end_date: str, max_pages: int = None) -> dict:
+    """
+    Backfill entry point scoped to exactly one user - never scans Users. Historical
+    backfill batches are invoked per-user (e.g. by the Step Functions state machine
+    fanning out bounded date windows), so there's no "all users" case here the way
+    there is for the EventBridge/scheduled sweep.
+
+    Returns the same result shape process_all_users_sweep does, so
+    lambda_handler's success_response call doesn't need separate handling.
+    """
+    users_table = dynamodb.Table(os.environ['USERS_TABLE'])
+    user = fetch_user_by_id(users_table, user_id)
+
+    result = process_user_sweep(user, backfill_start_date=start_date, backfill_end_date=end_date,
+                                 max_pages=max_pages)
+
+    return {'total_users': 1, 'successful': 1, 'failed': 0, 'per_user': [result], 'errors': []}
+
+
 def process_all_users_sweep(backfill_start_date: str = None, max_pages: int = None) -> dict:
     """
     EventBridge trigger path: sweep every user's inbox.
@@ -343,8 +377,10 @@ def lambda_handler(event, context):
     Main entry point.
 
     Modes:
-    - Manual backfill: event = {"mode": "backfill", "start_date": "YYYY-MM-DD", "max_pages": <int>}
-      Sweeps all users from start_date to now, with a raised page cap.
+    - Manual backfill: event = {"mode": "backfill", "user_id": "...", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "max_pages": <int>}
+      Sweeps exactly one user's inbox over a bounded window (max MAX_BACKFILL_WINDOW_DAYS).
+      Intended to be invoked once per batch, e.g. by the retail-invoice-backfill Step
+      Functions state machine fanning out many bounded historical windows.
     - EventBridge (scheduled): sweeps all users using gap-filling incremental windows.
 
     No API Gateway route in v1 - this pipeline runs exclusively on its own cron plus
@@ -355,8 +391,28 @@ def lambda_handler(event, context):
 
         if event.get('mode') == 'backfill':
             logger.info("Backfill mode detected")
-            results = process_all_users_sweep(
-                backfill_start_date=event.get('start_date'),
+            user_id = event.get('user_id')
+            start_date_str = event.get('start_date')
+            end_date_str = event.get('end_date')
+
+            if not user_id or not start_date_str or not end_date_str:
+                return log_and_generate_error_response(
+                    ErrorCode.MISSING_FIELDS,
+                    "Backfill mode requires user_id, start_date, and end_date",
+                    400, ValueError("Missing required backfill field")
+                )
+
+            span_days = (datetime.strptime(end_date_str, "%Y-%m-%d")
+                         - datetime.strptime(start_date_str, "%Y-%m-%d")).days
+            if span_days > MAX_BACKFILL_WINDOW_DAYS:
+                return log_and_generate_error_response(
+                    ErrorCode.INVALID_REQUEST,
+                    f"Backfill window cannot exceed {MAX_BACKFILL_WINDOW_DAYS} days ({span_days} requested)",
+                    400, ValueError("Backfill window too large")
+                )
+
+            results = process_single_user_backfill(
+                user_id=user_id, start_date=start_date_str, end_date=end_date_str,
                 max_pages=event.get('max_pages')
             )
             return success_response(message="Backfill sweep completed", data=results)
