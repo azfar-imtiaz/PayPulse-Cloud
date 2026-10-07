@@ -1,0 +1,5 @@
+# Documentation only - actual dependencies are provided via Lambda layers:
+#   - typesafe-sdk      -> jev_layer (lambda_layers/jev/)
+#   - google-generativeai (via google.genai) -> reuses the pattern from gemini_parsers_layer
+#   - google-api-python-client / google-auth -> google_api_layer
+#   - boto3 is provided by the Lambda runtime
