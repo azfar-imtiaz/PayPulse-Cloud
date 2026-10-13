@@ -16,10 +16,12 @@ class ClothingParser(RetailInvoiceBaseParser):
             "tax": "number",
             "delivery_fee": "number",
             "payment_method": "string",
+            "discount_applied": "number",
             "items": [
                 {
                     "name": "string",
                     "brand": "string",
+                    "size": "string",
                     "price": "number",
                     "quantity": "number"
                 }
@@ -38,7 +40,8 @@ class ClothingParser(RetailInvoiceBaseParser):
             '- Delivery fee (if present) should not be part of the items array',
             '- For items array, include all ordered items with their name, price, and quantity',
             '- If the item does not mention the brand, use the vendor as the brand',
-            '- In the notes field, mention any information about the product that you think is relevant. This is an optional field and can be left empty as well.',
+            '- If a size is mentioned for an item (e.g. "M", "US 10", "42"), extract it into that item\'s size field; use null if no size is mentioned',
+            '- If a discount or promo was applied to the order total, extract the discounted amount into discount_applied; use 0 if no discount was applied',
         ] + self._generate_base_instructions())
 
         return custom_instructions

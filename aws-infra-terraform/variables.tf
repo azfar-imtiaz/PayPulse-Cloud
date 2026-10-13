@@ -274,6 +274,12 @@ variable "lambda_delete_retail_invoice" {
   default     = "delete_retail_invoice"
 }
 
+variable "lambda_recategorize_retail_invoice" {
+  type        = string
+  description = "The lambda function for recategorizing a retail invoice"
+  default     = "recategorize_retail_invoice"
+}
+
 variable "lambda_mark_duplicate_invoice" {
   type        = string
   description = "The lambda function for marking a retail invoice as a duplicate of another"

@@ -1,17 +1,14 @@
 import os
 import boto3
 import logging
-from uuid import uuid4
-from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from urllib.parse import unquote_plus
-from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 from parser_factory import get_parser_for_subtype, extract_subtype_from_s3_path, extract_vendor_from_filename
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.exceptions import DatabaseError, S3Error
-from utils.dynamodb_utils import write_ledger_entry
+from utils.dynamodb_utils import write_ledger_entry, upsert_retail_invoice_to_dynamodb
 
 
 # Configure logging
@@ -92,11 +89,6 @@ def download_html_from_s3(bucket: str, s3_key: str) -> tuple[str, str]:
         raise S3Error(f"Failed to download HTML from S3: {bucket}/{s3_key}") from e
 
 
-def generate_invoice_id() -> str:
-    """Generate unique invoice ID."""
-    return f"retail_invoice_{uuid4()}"
-
-
 def get_sweep_source_metadata(bucket: str, s3_key: str) -> Optional[Dict[str, str]]:
     """
     Check whether the triggering S3 object was uploaded by the new sweep/classification
@@ -127,175 +119,6 @@ def get_sweep_source_metadata(bucket: str, s3_key: str) -> Optional[Dict[str, st
         return None
 
     return {'message_id': message_id}
-
-
-def resolve_duplicate(existing: Dict[str, Any], new_invoice_date: str) -> str:
-    """
-    Decide what to do when a (UserID, vendor, order_id) match already exists.
-
-    Default policy (per the design doc): keep the lifecycle email with the latest date -
-    an earlier email for the same order is treated as superseded and overwritten in place.
-    The fuzzy-match fallback for when order_id can't be resolved is deliberately out of
-    scope here - exact-match only for this implementation.
-
-    Returns:
-        'update' - overwrite the existing row with the new data
-        'skip'    - new data is not newer, discard it as a duplicate
-    """
-    existing_date = existing.get('invoice_date', '')
-    if new_invoice_date and new_invoice_date > existing_date:
-        return 'update'
-    return 'skip'
-
-
-def compute_vendor_order_key(vendor_name: str, order_id: str, invoice_date: str) -> Optional[str]:
-    """
-    Compute the dedup key used on the vendor-order-index GSI.
-
-    Prefers an exact (vendor, order_id) match. When order_id isn't resolvable (e.g. AWS
-    billing emails have no order number), falls back to (vendor, day) - day granularity,
-    not full timestamp, since the goal is catching lifecycle-email duplicates for the same
-    purchase, which land on the same calendar day. Known trade-off: two genuinely separate
-    same-vendor purchases on the same day will collide and the second will be treated as a
-    duplicate update rather than a new invoice - accepted given no better signal exists
-    without order_id.
-
-    Returns None if neither order_id nor invoice_date is available (no dedup key possible).
-    """
-    if order_id:
-        return f"{vendor_name}_{order_id}"
-    if invoice_date:
-        return f"{vendor_name}_{invoice_date[:10]}"
-    return None
-
-
-def find_existing_invoice(user_id: str, vendor_order_key: Optional[str]) -> Optional[Dict[str, Any]]:
-    """
-    Query the vendor-order-index GSI for an existing invoice with the same vendor_order_key
-    (see compute_vendor_order_key for how that key is derived). Returns None if no key could
-    be computed, or no match is found.
-
-    Known limitation: pre-existing RetailInvoices rows (written before this GSI existed)
-    have no vendor_order_key attribute and are absent from this sparse index - they won't
-    be found here. Accepted for the parallel-run/testing period.
-    """
-    if not vendor_order_key:
-        return None
-
-    try:
-        response = retail_invoices_table.query(
-            IndexName='vendor-order-index',
-            KeyConditionExpression=Key('UserID').eq(user_id) & Key('vendor_order_key').eq(vendor_order_key)
-        )
-        items = response.get('Items', [])
-        return items[0] if items else None
-    except ClientError as e:
-        raise DatabaseError(f"Error querying vendor-order-index for {user_id}/{vendor_order_key}") from e
-
-
-def upsert_retail_invoice_to_dynamodb(invoice_data: Dict[str, Any], user_id: str, sub_type: str, s3_path: str,
-                                       fallback_date: str, discovery_source: str) -> tuple[str, str]:
-    """
-    Insert or upsert parsed retail invoice data into DynamoDB tables.
-
-    Args:
-        invoice_data: Parsed invoice data from Gemini
-        user_id: User ID
-        sub_type: Retail invoice sub-type
-        s3_path: S3 path to the original HTML file
-        fallback_date: S3 object's last-modified date, used when invoice_date can't be determined
-        discovery_source: 'sweep' or 'vendor_config' - which pipeline discovered this email,
-                           recorded on every write so the two pipelines' output stays queryable
-                           during the parallel-run comparison period.
-
-    Returns:
-        Tuple of (invoice_id, outcome) where outcome is 'inserted', 'updated', or 'duplicate_skipped'
-    """
-    try:
-        created_at = datetime.now(timezone.utc).isoformat()
-        vendor_name = invoice_data.get('vendor_name')
-        order_id = invoice_data.get('order_id')
-
-        # Use fallback date if invoice_date is missing or None
-        invoice_date = invoice_data.get('invoice_date')
-        if not invoice_date:
-            # try to get the date from S3 path
-            try:
-                if s3_path.find("/") < 0:
-                    raise ValueError
-                filename = s3_path.split('/')[-1]       # get filename
-                filename_date = filename.split("_")[-2]     # get date (sandwiched between vendor name and hash)
-                datetime.strptime(filename_date, '%Y-%m-%d')    # validate date structure
-                invoice_date = filename_date
-                logging.info(f"Using date from S3 path: {filename_date}")
-            except (ValueError, IndexError):
-                invoice_date = fallback_date
-                logging.info(f"Using S3 last-modified date as fallback for invoice_date: {fallback_date}")
-        else:
-            logging.info(f"Using parsed invoice_date: {invoice_date}")
-
-        vendor_order_key = compute_vendor_order_key(vendor_name, order_id, invoice_date)
-        existing_invoice = find_existing_invoice(user_id, vendor_order_key)
-
-        if existing_invoice:
-            decision = resolve_duplicate(existing_invoice, invoice_date)
-            if decision == 'skip':
-                logging.info(f"Duplicate detected for {user_id}/{vendor_order_key} - skipping")
-                return existing_invoice['InvoiceID'], 'duplicate_skipped'
-            invoice_id = existing_invoice['InvoiceID']
-            logging.info(f"Updating existing invoice {invoice_id} for {user_id}/{vendor_order_key}")
-        else:
-            invoice_id = generate_invoice_id()
-
-        # Prepare base retail invoice data
-        base_invoice_data = {
-            'UserID': user_id,
-            'InvoiceID': invoice_id,
-            'vendor_name': vendor_name,
-            'sub_type': sub_type,
-            'total_amount': invoice_data.get('total_amount'),
-            'currency': invoice_data.get('currency'),
-            'invoice_date': invoice_date,
-            'created_at': created_at,
-            's3_path': s3_path,
-            'order_id': order_id,
-            'payment_status': 'completed',  # Default status
-            'UserID_SubType': f"{user_id}_{sub_type}",  # For GSI-2
-            'discovery_source': discovery_source,
-        }
-        if vendor_order_key:
-            base_invoice_data['vendor_order_key'] = vendor_order_key
-
-        # Insert/overwrite RetailInvoices base table row
-        logging.info(f"Writing base invoice data into {RETAIL_INVOICES_TABLE}")
-        retail_invoices_table.put_item(Item=base_invoice_data)
-
-        # Prepare detail table data (exclude base fields)
-        detail_data = invoice_data.copy()
-        detail_data['InvoiceID'] = invoice_id
-
-        # Remove base fields from detail data to avoid duplication
-        base_fields = ['vendor_name', 'total_amount', 'currency', 'invoice_date', 'order_id']
-        for field in base_fields:
-            detail_data.pop(field, None)
-
-        # Insert/overwrite appropriate detail table row
-        detail_table = detail_tables.get(sub_type)
-        if detail_table:
-            logging.info(f"Writing detail data into {detail_table.table_name}")
-            detail_table.put_item(Item=detail_data)
-        else:
-            logging.warning(f"No detail table found for sub_type: {sub_type}")
-
-        outcome = 'updated' if existing_invoice else 'inserted'
-        logging.info(f"Successfully {outcome} retail invoice with ID: {invoice_id}")
-        return invoice_id, outcome
-
-    except DatabaseError:
-        raise
-    except Exception as e:
-        logging.error(f"Failed to upsert retail invoice into DynamoDB: {e}")
-        raise DatabaseError(f"Failed to upsert retail invoice: {str(e)}") from e
 
 
 def lambda_handler(event, context):
@@ -379,6 +202,8 @@ def lambda_handler(event, context):
 
         # Insert or upsert parsed data into DynamoDB
         invoice_id, outcome = upsert_retail_invoice_to_dynamodb(
+            retail_invoices_table=retail_invoices_table,
+            detail_tables=detail_tables,
             invoice_data=parsed_data,
             user_id=user_id,
             sub_type=sub_type,

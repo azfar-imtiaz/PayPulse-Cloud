@@ -154,6 +154,16 @@ output "delete_retail_invoice_function_name" {
   value       = aws_lambda_function.delete_retail_invoice.function_name
 }
 
+output "recategorize_retail_invoice_invoke_arn" {
+  description = "Invoke ARN for recategorize_retail_invoice lambda"
+  value       = aws_lambda_function.recategorize_retail_invoice.invoke_arn
+}
+
+output "recategorize_retail_invoice_function_name" {
+  description = "Function name for recategorize_retail_invoice lambda"
+  value       = aws_lambda_function.recategorize_retail_invoice.function_name
+}
+
 output "mark_duplicate_invoice_invoke_arn" {
   description = "Invoke ARN for mark_duplicate_invoice lambda"
   value       = aws_lambda_function.mark_duplicate_invoice.invoke_arn

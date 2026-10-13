@@ -71,6 +71,7 @@ module "lambdas" {
   lambda_gmail_store_tokens                 = var.lambda_gmail_store_tokens
   lambda_parse_retail_invoice               = var.lambda_parse_retail_invoice
   lambda_delete_retail_invoice              = var.lambda_delete_retail_invoice
+  lambda_recategorize_retail_invoice        = var.lambda_recategorize_retail_invoice
   lambda_mark_duplicate_invoice             = var.lambda_mark_duplicate_invoice
   lambda_fetch_and_classify_retail_invoices = var.lambda_fetch_and_classify_retail_invoices
   lambda_start_retail_invoice_backfill      = var.lambda_start_retail_invoice_backfill
@@ -103,6 +104,7 @@ module "lambdas" {
   fetch_and_classify_retail_invoices_lambda_role_arn = module.iam.fetch_and_classify_retail_invoices_lambda_role_arn
   parse_retail_invoice_lambda_role_arn               = module.iam.parse_retail_invoice_lambda_role_arn
   delete_retail_invoice_lambda_role_arn              = module.iam.delete_retail_invoice_lambda_role_arn
+  recategorize_retail_invoice_lambda_role_arn        = module.iam.recategorize_retail_invoice_lambda_role_arn
   mark_duplicate_invoice_lambda_role_arn             = module.iam.mark_duplicate_invoice_lambda_role_arn
   start_retail_invoice_backfill_lambda_role_arn      = module.iam.start_retail_invoice_backfill_lambda_role_arn
   retail_invoice_backfill_state_machine_arn          = aws_sfn_state_machine.retail_invoice_backfill.arn

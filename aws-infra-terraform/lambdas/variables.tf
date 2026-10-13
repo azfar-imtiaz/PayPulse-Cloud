@@ -235,6 +235,16 @@ variable "delete_retail_invoice_lambda_role_arn" {
   description = "IAM role ARN for delete_retail_invoice lambda"
 }
 
+variable "lambda_recategorize_retail_invoice" {
+  type        = string
+  description = "Path to recategorize_retail_invoice lambda function"
+}
+
+variable "recategorize_retail_invoice_lambda_role_arn" {
+  type        = string
+  description = "IAM role ARN for recategorize_retail_invoice lambda"
+}
+
 variable "lambda_mark_duplicate_invoice" {
   type        = string
   description = "Path to mark_duplicate_invoice lambda function"

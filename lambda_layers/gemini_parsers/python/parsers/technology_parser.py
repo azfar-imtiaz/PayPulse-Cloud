@@ -17,6 +17,7 @@ class TechnologyParser(RetailInvoiceBaseParser):
             "tax": "number",
             "delivery_fee": "number",
             "payment_method": "string",
+            "product_category": "string",
             "items": [
                 {
                     "name": "string",
@@ -38,6 +39,7 @@ class TechnologyParser(RetailInvoiceBaseParser):
         custom_instructions += "\n".join([
             '- Delivery fee (if present) should not be part of the items array',
             '- For items array, include all ordered items with their name, price, and quantity',
+            '- Classify the overall purchase into a short product_category based on the item name(s) and vendor - choose from: laptop, phone, tablet, monitor, audio, gaming, peripheral, smart-home, appliance, accessory, other. If items span multiple categories, use the category of the primary or most expensive item.',
             '- In the notes field, mention any information about the product that you think is relevant. This is an optional field and can be left empty as well.',
         ] + self._generate_base_instructions())
 

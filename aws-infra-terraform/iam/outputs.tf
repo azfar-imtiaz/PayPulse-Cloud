@@ -70,6 +70,11 @@ output "start_retail_invoice_backfill_lambda_role_arn" {
   value       = aws_iam_role.start_retail_invoice_backfill_lambda_role.arn
 }
 
+output "recategorize_retail_invoice_lambda_role_arn" {
+  description = "ARN of the recategorize retail invoice lambda role"
+  value       = aws_iam_role.recategorize_retail_invoice_lambda_role.arn
+}
+
 output "mark_duplicate_invoice_lambda_role_arn" {
   description = "ARN of the mark duplicate invoice lambda role"
   value       = aws_iam_role.mark_duplicate_invoice_lambda_role.arn

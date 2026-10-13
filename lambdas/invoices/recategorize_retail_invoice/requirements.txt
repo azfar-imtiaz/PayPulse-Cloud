@@ -1,0 +1,6 @@
+# This Lambda function uses layers for its dependencies:
+# - pyjwt_layer: JWT authentication
+# - utils_layer: Common utilities and DynamoDB functions
+# - gemini_parsers_layer: Gemini API parsers for retail invoices
+# - google_genai_layer: Google Gemini API client
+# No additional requirements needed

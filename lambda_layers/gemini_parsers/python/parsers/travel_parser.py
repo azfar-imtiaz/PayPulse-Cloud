@@ -21,7 +21,8 @@ class TravelParser(RetailInvoiceBaseParser):
                     "departure_location": "string",
                     "arrival_location": "string",
                     "departure_date": "string",
-                    "arrival_date": "string"
+                    "arrival_date": "string",
+                    "ticket_number": "string"
                 }
             ],
             "passengers": [
@@ -42,6 +43,7 @@ class TravelParser(RetailInvoiceBaseParser):
         custom_instructions += "\n".join([
             '- Travel invoices can be for journeys via flights, trains, or buses',
             '- The travel_details array can contain one or more travel details. If it is a one-way travel, it will contain one item. If it is a return trip, it will contain two items. If there are multiple stops along the way, it can contain more than two items',
+            '- If a ticket number is mentioned for a leg of the journey, extract it into that leg\'s ticket_number field; use null if no ticket number is mentioned for that leg',
         ] + self._generate_base_instructions())
 
         return custom_instructions

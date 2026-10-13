@@ -350,6 +350,33 @@ resource "aws_lambda_permission" "delete_retail_invoice_api_permission" {
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
 
+# --- Endpoint for recategorize_retail_invoice ---
+
+# Connect APIGateway to recategorize_retail_invoice lambda function
+resource "aws_apigatewayv2_integration" "recategorize_retail_invoice_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.lambdas.recategorize_retail_invoice_invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path: PATCH /v1/invoices/retail/{invoice_id}/category)
+resource "aws_apigatewayv2_route" "recategorize_retail_invoice_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "PATCH /${var.api_version}/invoices/retail/{invoice_id}/category"
+  target    = "integrations/${aws_apigatewayv2_integration.recategorize_retail_invoice_integration.id}"
+}
+
+# Allow APIGateway to invoke the recategorize_retail_invoice lambda function
+resource "aws_lambda_permission" "recategorize_retail_invoice_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambdas.recategorize_retail_invoice_function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}
+
 # --- Endpoint for mark_duplicate_invoice ---
 
 # Connect APIGateway to mark_duplicate_invoice lambda function
