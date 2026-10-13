@@ -472,7 +472,7 @@ Later, I plan on expanding the infrastructure by parsing more invoices of differ
 - Stream: Enabled
 - Contains: vendor_name, sub_type, total_amount, currency, invoice_date, s3_path, etc.
 
-**3-9. Retail Invoice Detail Tables**
+**3-10. Retail Invoice Detail Tables**
 - FoodDeliveryInvoices
 - ClothingInvoices
 - TechnologyInvoices
@@ -480,10 +480,11 @@ Later, I plan on expanding the infrastructure by parsing more invoices of differ
 - GroceryInvoices
 - MiscellaneousUtilityInvoices
 - MiscellaneousInvoices
+- TravelInvoices
 
-Each uses `InvoiceID` as partition key, PAY_PER_REQUEST billing
+Each uses `InvoiceID` as partition key, PAY_PER_REQUEST billing. Per-category field schema is defined by each Gemini parser's `self.schema` in `lambda_layers/gemini_parsers/python/parsers/*.py` — see `CLAUDE.md` for a point-in-time snapshot (verified against live data as of 2026-10) and a caution against re-documenting it by hand.
 
-**10. VendorConfig**
+**11. VendorConfig**
 - Partition key: `vendor_id`
 - Billing mode: Pay per request
 - Contains: vendor_name, invoice_sub_type, email_patterns, subject_keywords, parser_type, active status, etc.
@@ -491,7 +492,7 @@ Each uses `InvoiceID` as partition key, PAY_PER_REQUEST billing
   shrinks over time to optional per-vendor Gemini prompt tuning now that discovery is
   vendor-agnostic (see "Automated Retail Invoice Discovery" below)
 
-**11. RetailEmailClassificationLedger**
+**12. RetailEmailClassificationLedger**
 - Partition key: `UserID`
 - Sort key: `MessageID` (Gmail message ID)
 - GSI: `status-classified_at-index`
@@ -502,7 +503,7 @@ Each uses `InvoiceID` as partition key, PAY_PER_REQUEST billing
   as the sweep's own dedup check (skip already-classified messages) and as a growing
   labeled dataset for a possible future self-hosted classifier
 
-**12. Users**
+**13. Users**
 - Partition key: `UserID`
 - GSI: `Email-index`
 - Billing mode: Pay per request
