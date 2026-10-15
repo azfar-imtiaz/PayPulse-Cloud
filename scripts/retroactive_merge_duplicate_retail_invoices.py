@@ -33,6 +33,7 @@ Usage:
 
 import argparse
 import json
+import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -41,8 +42,12 @@ import boto3
 from boto3.dynamodb.conditions import Attr
 from botocore.exceptions import ClientError
 
+sys.path.insert(0, "lambda_layers/common/python")
+from utils.vendor_normalization import resolve_vendor_name  # noqa: E402
+
 REGION = "eu-west-1"
 TABLE_NAME = "RetailInvoices"
+VENDOR_ALIASES_TABLE_NAME = "VendorAliases"
 LEGACY_DISCOVERY_SOURCE = "legacy-vendor-pipeline"
 
 
@@ -96,6 +101,59 @@ def backfill_discovery_source(table, items, apply_writes):
                 print(f"  [skip] {item['InvoiceID']} got a discovery_source concurrently - leaving as-is")
 
     return to_backfill
+
+
+def normalize_vendor_names(table, aliases_table, items, apply_writes):
+    """Resolve every row's vendor_name through the Tier 1/Tier 2 normalizer (see
+    resolve_vendor_name), mutating in-memory so grouping benefits within this same run.
+    Rows with no order_id also get their vendor_order_key rewritten, since that key's
+    fallback branch embeds vendor_name directly."""
+    renamed = []
+    for item in items:
+        old_name = item.get("vendor_name")
+        if not old_name:
+            continue
+        new_name = resolve_vendor_name(old_name, aliases_table)
+        if new_name == old_name:
+            continue
+
+        renamed.append({"InvoiceID": item["InvoiceID"], "old": old_name, "new": new_name})
+        item["vendor_name"] = new_name
+
+        if apply_writes:
+            try:
+                table.update_item(
+                    Key={"UserID": item["UserID"], "InvoiceID": item["InvoiceID"]},
+                    UpdateExpression="SET vendor_name = :new",
+                    ConditionExpression="vendor_name = :old",
+                    ExpressionAttributeValues={":new": new_name, ":old": old_name},
+                )
+            except ClientError as e:
+                if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                    raise
+                print(f"  [skip] {item['InvoiceID']} vendor_name changed concurrently - leaving as-is")
+                continue
+
+            if not item.get("order_id"):
+                new_key = compute_new_vendor_order_key(item)
+                if new_key and item.get("vendor_order_key") != new_key:
+                    try:
+                        table.update_item(
+                            Key={"UserID": item["UserID"], "InvoiceID": item["InvoiceID"]},
+                            UpdateExpression="SET vendor_order_key = :key",
+                            ConditionExpression="attribute_not_exists(is_duplicate) OR is_duplicate = :false",
+                            ExpressionAttributeValues={":key": new_key, ":false": False},
+                        )
+                    except ClientError as e:
+                        if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                            raise
+                        print(f"  [skip] {item['InvoiceID']} became a duplicate concurrently - not rewriting its vendor_order_key")
+
+    print(f"\n[Vendor normalization] {len(renamed)} row(s) renamed:")
+    for r in renamed:
+        print(f"  {r['InvoiceID']}: {r['old']!r} -> {r['new']!r}")
+
+    return renamed
 
 
 def group_duplicates(items):
@@ -263,6 +321,9 @@ def main():
     mode.add_argument("--dry-run", action="store_true", default=True,
                        help="Print what would change without writing (default)")
     mode.add_argument("--apply", action="store_true", help="Actually perform the writes")
+    parser.add_argument("--normalize-vendors", action="store_true",
+                         help="Also resolve vendor_name through the Tier 1/Tier 2 normalizer "
+                              "before grouping, so inconsistent naming doesn't hide duplicates")
     args = parser.parse_args()
     apply_writes = args.apply
 
@@ -278,6 +339,10 @@ def main():
         snapshot_items(items, f"retail_invoices_pre_merge_snapshot_{timestamp}.json")
 
     backfill_discovery_source(table, items, apply_writes)
+
+    if args.normalize_vendors:
+        aliases_table = dynamodb.Table(VENDOR_ALIASES_TABLE_NAME)
+        normalize_vendor_names(table, aliases_table, items, apply_writes)
 
     groups = group_duplicates(items)
     print(f"\n[Grouping] Found {len(groups)} duplicate group(s) "
