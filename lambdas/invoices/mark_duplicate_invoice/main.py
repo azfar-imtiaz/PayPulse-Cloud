@@ -87,6 +87,14 @@ def lambda_handler(event, context, user_id):
                 None
             )
 
+        if duplicate_invoice.get('discovery_source') != original_invoice.get('discovery_source'):
+            return log_and_generate_error_response(
+                ErrorCode.INVALID_REQUEST,
+                "Invoices must come from the same discovery source to be marked as duplicates",
+                400,
+                None
+            )
+
         # Step 4: Mark the duplicate invoice
         mark_as_duplicate(user_id, invoice_id, duplicate_of_invoice_id)
 
