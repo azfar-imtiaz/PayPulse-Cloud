@@ -80,6 +80,14 @@ resource "aws_iam_policy" "parse_retail_invoice_lambda_policy" {
           "dynamodb:UpdateItem"
         ],
         Resource = var.retail_email_classification_ledger_table_arn
+      },
+      # DynamoDB - VendorAliases read-only lookup for vendor_name consolidation
+      {
+        Effect = "Allow",
+        Action = [
+          "dynamodb:GetItem"
+        ],
+        Resource = var.vendor_aliases_table_arn
       }
     ]
   })

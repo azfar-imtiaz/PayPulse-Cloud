@@ -225,6 +225,11 @@ variable "vendor_config_table_name" {
   description = "The name of the VendorConfig DynamoDB table"
 }
 
+variable "vendor_aliases_table_name" {
+  type        = string
+  description = "The name of the VendorAliases DynamoDB table"
+}
+
 variable "lambda_delete_retail_invoice" {
   type        = string
   description = "Path to delete_retail_invoice lambda function"

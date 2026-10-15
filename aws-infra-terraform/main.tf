@@ -46,6 +46,7 @@ module "iam" {
   misc_invoices_table_arn                      = aws_dynamodb_table.misc_invoices.arn
   travel_invoices_table_arn                    = aws_dynamodb_table.travel_invoices.arn
   vendor_config_table_arn                      = aws_dynamodb_table.vendor_config.arn
+  vendor_aliases_table_arn                     = aws_dynamodb_table.vendor_aliases.arn
   retail_email_classification_ledger_table_arn = aws_dynamodb_table.retail_email_classification_ledger.arn
   retail_invoice_backfill_state_machine_arn    = aws_sfn_state_machine.retail_invoice_backfill.arn
 }
@@ -109,6 +110,7 @@ module "lambdas" {
   start_retail_invoice_backfill_lambda_role_arn      = module.iam.start_retail_invoice_backfill_lambda_role_arn
   retail_invoice_backfill_state_machine_arn          = aws_sfn_state_machine.retail_invoice_backfill.arn
   vendor_config_table_name                           = aws_dynamodb_table.vendor_config.name
+  vendor_aliases_table_name                          = aws_dynamodb_table.vendor_aliases.name
   gemini_api_key_secret_string                       = aws_secretsmanager_secret_version.gemini_api_key_value.secret_string
   jev_api_key_secret_string                          = aws_secretsmanager_secret_version.jev_api_key_value.secret_string
 

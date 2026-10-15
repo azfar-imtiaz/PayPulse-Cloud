@@ -102,6 +102,11 @@ variable "vendor_config_table_arn" {
   description = "ARN of VendorConfig table"
 }
 
+variable "vendor_aliases_table_arn" {
+  type        = string
+  description = "ARN of VendorAliases table"
+}
+
 variable "retail_email_classification_ledger_table_arn" {
   type        = string
   description = "ARN of RetailEmailClassificationLedger table"

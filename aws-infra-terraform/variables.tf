@@ -388,6 +388,12 @@ variable "vendor_config_table" {
   default     = "VendorConfig"
 }
 
+variable "vendor_aliases_table" {
+  type        = string
+  description = "The DynamoDB table mapping normalized vendor-name lookup keys to curated canonical names"
+  default     = "VendorAliases"
+}
+
 variable "retail_email_classification_ledger_table" {
   type        = string
   description = "The DynamoDB table recording every email classification outcome from the automated retail invoice sweep pipeline"

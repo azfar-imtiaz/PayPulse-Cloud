@@ -28,6 +28,7 @@ resource "aws_lambda_function" "parse_retail_invoice" {
       TRAVEL_INVOICES_TABLE        = var.travel_invoices_table_name
       GEMINI_API_KEY               = var.gemini_api_key_secret_string
       RETAIL_EMAIL_CLASSIFICATION_LEDGER_TABLE = var.retail_email_classification_ledger_table_name
+      VENDOR_ALIASES_TABLE         = var.vendor_aliases_table_name
     }
   }
 

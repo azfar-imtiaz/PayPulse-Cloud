@@ -409,3 +409,28 @@ resource "aws_dynamodb_table" "vendor_config" {
     Environment = "production"
   }
 }
+
+# Vendor Aliases table - maps a normalized vendor-name lookup key to a curated canonical
+# display name, so extraction inconsistencies (e.g. "Amazon" vs "Amazon.se", "Kinto" vs
+# "KintoShare") can be consolidated. Keyed by the normalized lookup key (not a raw vendor
+# name) so reads are a single GetItem.
+
+resource "aws_dynamodb_table" "vendor_aliases" {
+  name         = var.vendor_aliases_table
+  billing_mode = "PAY_PER_REQUEST"
+
+  hash_key = "NormalizedKey"
+
+  attribute {
+    name = "NormalizedKey"
+    type = "S"
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = {
+    Environment = "production"
+  }
+}
