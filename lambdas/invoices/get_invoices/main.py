@@ -54,6 +54,8 @@ def lambda_handler(event, context, user_id):
         invoice_subtype = query_parameters.get('subtype')
         invoice_id = query_parameters.get('invoice-id')
         counts_param = query_parameters.get('counts', '').lower() == 'true'
+        exclude_param = query_parameters.get('exclude', '')
+        exclude_sources = [s.strip() for s in exclude_param.split(',') if s.strip()] or None
 
         # Validate invoice type
         if invoice_type not in ['rental', 'retail']:
@@ -90,7 +92,7 @@ def lambda_handler(event, context, user_id):
         else:
             if counts_param and not invoice_subtype:
                 # Get counts for all sub-types
-                counts = get_retail_invoice_counts(retail_invoices_table, user_id=user_id)
+                counts = get_retail_invoice_counts(retail_invoices_table, user_id=user_id, exclude_sources=exclude_sources)
                 return success_response(
                     message="Retail invoice counts retrieved successfully!",
                     data=counts
@@ -128,7 +130,8 @@ def lambda_handler(event, context, user_id):
                 elif counts_param:
                     # Get count for specific sub-type
                     counts = get_retail_invoice_count_by_subtype(
-                        retail_invoices_table, user_id=user_id, sub_type=invoice_subtype
+                        retail_invoices_table, user_id=user_id, sub_type=invoice_subtype,
+                        exclude_sources=exclude_sources
                     )
                     return success_response(
                         message=f"Retail {invoice_subtype} invoice counts retrieved successfully!",
@@ -137,7 +140,8 @@ def lambda_handler(event, context, user_id):
                 else:
                     # Get summary list of invoices for the sub-type
                     invoices, invoices_count = get_user_retail_invoices_by_subtype(
-                        retail_invoices_table, user_id=user_id, sub_type=invoice_subtype
+                        retail_invoices_table, user_id=user_id, sub_type=invoice_subtype,
+                        exclude_sources=exclude_sources
                     )
                     message_prefix = f"Retail {invoice_subtype}"
             else:
@@ -150,7 +154,9 @@ def lambda_handler(event, context, user_id):
                         None
                     )
 
-                invoices, invoices_count = get_user_retail_invoices(retail_invoices_table, user_id=user_id)
+                invoices, invoices_count = get_user_retail_invoices(
+                    retail_invoices_table, user_id=user_id, exclude_sources=exclude_sources
+                )
                 message_prefix = "Retail"
 
         # Return response

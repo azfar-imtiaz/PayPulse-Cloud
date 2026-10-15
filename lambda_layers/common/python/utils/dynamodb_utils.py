@@ -449,13 +449,22 @@ def delete_retail_invoice_details(detail_tables_dict: Dict, invoice_ids: list) -
         raise DatabaseError(f"Error deleting retail invoice details: {str(e)}") from e
 
 
-def get_user_retail_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
+def _build_retail_list_filter(exclude_sources=None):
+    """Base is_duplicate filter, ANDed with discovery_source exclusions if any are given."""
+    filter_expr = Attr('is_duplicate').not_exists() | Attr('is_duplicate').eq(False)
+    for src in (exclude_sources or []):
+        filter_expr = filter_expr & Attr('discovery_source').ne(src)
+    return filter_expr
+
+
+def get_user_retail_invoices(dynamodb_table, user_id: str, exclude_sources=None) -> Tuple[Dict, int]:
     """
-    Get all retail invoices for a given user
+    Get all retail invoices for a given user, optionally excluding given discovery_source values
 
     Args:
         dynamodb_table: DynamoDB table resource for RetailInvoices
         user_id: User ID
+        exclude_sources: Optional list of discovery_source values to exclude from results
 
     Returns:
         Tuple of (invoices_dict, count)
@@ -463,7 +472,7 @@ def get_user_retail_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
     try:
         response = dynamodb_table.query(
             KeyConditionExpression=Key('UserID').eq(user_id),
-            FilterExpression=Attr('is_duplicate').not_exists() | Attr('is_duplicate').eq(False),
+            FilterExpression=_build_retail_list_filter(exclude_sources),
             ProjectionExpression="InvoiceID, invoice_date, total_amount, currency, vendor_name, sub_type"
         )
         invoices = response.get('Items', [])
@@ -474,15 +483,18 @@ def get_user_retail_invoices(dynamodb_table, user_id: str) -> Tuple[Dict, int]:
         raise DatabaseError(f"Error getting retail invoices for '{user_id}'") from e
 
 
-def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: str, group_by: str = 'year') -> Tuple[Dict, int]:
+def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: str, group_by: str = 'year',
+                                         exclude_sources=None) -> Tuple[Dict, int]:
     """
-    Get all retail invoices for a given user filtered by sub-type
+    Get all retail invoices for a given user filtered by sub-type, optionally excluding given
+    discovery_source values
 
     Args:
         dynamodb_table: DynamoDB table resource for RetailInvoices
         user_id: User ID
         sub_type: Invoice sub-type (e.g., 'food-delivery', 'technology')
         group_by: Grouping strategy - 'year' or 'sub_type' (default: 'year' for sub-type queries)
+        exclude_sources: Optional list of discovery_source values to exclude from results
 
     Returns:
         Tuple of (invoices_dict, count)
@@ -495,7 +507,7 @@ def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: 
         response = dynamodb_table.query(
             IndexName='sub_type-invoice_date-index',
             KeyConditionExpression=Key('UserID_SubType').eq(user_id_subtype),
-            FilterExpression=Attr('is_duplicate').not_exists() | Attr('is_duplicate').eq(False),
+            FilterExpression=_build_retail_list_filter(exclude_sources),
             ProjectionExpression="InvoiceID, invoice_date, total_amount, currency, vendor_name, sub_type"
         )
         invoices = response.get('Items', [])
@@ -563,13 +575,16 @@ def get_retail_invoice_details(detail_table, invoice_id: str) -> Dict:
         raise DatabaseError(f"Error getting invoice details for '{invoice_id}'") from e
 
 
-def get_retail_invoice_counts(dynamodb_table, user_id: str) -> Dict[str, int]:
+def get_retail_invoice_counts(dynamodb_table, user_id: str, exclude_sources=None) -> Dict[str, int]:
     """
-    Get counts of retail invoices for all sub-types for a given user
+    Get counts of retail invoices for all sub-types for a given user, optionally excluding
+    given discovery_source values. Also excludes is_duplicate rows, consistent with the list
+    endpoints.
 
     Args:
         dynamodb_table: DynamoDB table resource for RetailInvoices
         user_id: User ID
+        exclude_sources: Optional list of discovery_source values to exclude from counts
 
     Returns:
         Dictionary with sub-type counts: {'food-delivery': 5, 'clothing': 2, ...}
@@ -587,6 +602,7 @@ def get_retail_invoice_counts(dynamodb_table, user_id: str) -> Dict[str, int]:
         # Query all retail invoices for the user and count by sub_type
         response = dynamodb_table.query(
             KeyConditionExpression=Key('UserID').eq(user_id),
+            FilterExpression=_build_retail_list_filter(exclude_sources),
             ProjectionExpression="sub_type"
         )
 
@@ -810,14 +826,18 @@ def upsert_retail_invoice_to_dynamodb(retail_invoices_table, detail_tables: Dict
         raise DatabaseError(f"Failed to upsert retail invoice: {str(e)}") from e
 
 
-def get_retail_invoice_count_by_subtype(dynamodb_table, user_id: str, sub_type: str) -> Dict[str, int]:
+def get_retail_invoice_count_by_subtype(dynamodb_table, user_id: str, sub_type: str,
+                                         exclude_sources=None) -> Dict[str, int]:
     """
-    Get count of retail invoices for a specific sub-type for a given user
+    Get count of retail invoices for a specific sub-type for a given user, optionally excluding
+    given discovery_source values. Also excludes is_duplicate rows, consistent with the list
+    endpoints. Filtering requires abandoning the pure Select='COUNT' optimization.
 
     Args:
         dynamodb_table: DynamoDB table resource for RetailInvoices
         user_id: User ID
         sub_type: Invoice sub-type (e.g., 'food-delivery', 'technology')
+        exclude_sources: Optional list of discovery_source values to exclude from the count
 
     Returns:
         Dictionary with single sub-type count: {'food-delivery': 5}
@@ -829,6 +849,7 @@ def get_retail_invoice_count_by_subtype(dynamodb_table, user_id: str, sub_type: 
         response = dynamodb_table.query(
             IndexName='sub_type-invoice_date-index',
             KeyConditionExpression=Key('UserID_SubType').eq(user_id_subtype),
+            FilterExpression=_build_retail_list_filter(exclude_sources),
             Select='COUNT'  # Only return the count, not the items
         )
 
