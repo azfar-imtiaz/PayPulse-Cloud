@@ -640,24 +640,19 @@ def get_retail_invoice_for_user(table, user_id: str, invoice_id: str) -> Dict:
         raise DatabaseError("Error validating invoice ownership") from e
 
 
-def compute_vendor_order_key(vendor_name: str, order_id: str, invoice_date: str):
+def compute_vendor_order_key(vendor_name: str, order_id: str, invoice_date: str, sub_type: str,
+                              discovery_source: str):
     """
-    Compute the dedup key used on the vendor-order-index GSI.
-
-    Prefers an exact (vendor, order_id) match. When order_id isn't resolvable (e.g. AWS
-    billing emails have no order number), falls back to (vendor, day) - day granularity,
-    not full timestamp, since the goal is catching lifecycle-email duplicates for the same
-    purchase, which land on the same calendar day. Known trade-off: two genuinely separate
-    same-vendor purchases on the same day will collide and the second will be treated as a
-    duplicate update rather than a new invoice - accepted given no better signal exists
-    without order_id.
-
-    Returns None if neither order_id nor invoice_date is available (no dedup key possible).
+    Compute the dedup key used on the vendor-order-index GSI. Keys on (sub_type, order_id)
+    when available - vendor_name is excluded since it's inconsistent across a vendor's own
+    emails for one order (e.g. "Amazon" vs "Amazon.se"); falls back to (vendor, day) otherwise.
+    Both branches are prefixed with discovery_source so dedup never merges across pipelines.
+    Returns None if neither order_id nor invoice_date is available.
     """
     if order_id:
-        return f"{vendor_name}_{order_id}"
+        return f"{discovery_source}_{sub_type}_{order_id}"
     if invoice_date:
-        return f"{vendor_name}_{invoice_date[:10]}"
+        return f"{discovery_source}_{vendor_name}_{invoice_date[:10]}"
     return None
 
 
@@ -751,7 +746,7 @@ def upsert_retail_invoice_to_dynamodb(retail_invoices_table, detail_tables: Dict
         else:
             logging.info(f"Using parsed invoice_date: {invoice_date}")
 
-        vendor_order_key = compute_vendor_order_key(vendor_name, order_id, invoice_date)
+        vendor_order_key = compute_vendor_order_key(vendor_name, order_id, invoice_date, sub_type, discovery_source)
         existing_invoice = find_existing_invoice(retail_invoices_table, user_id, vendor_order_key)
 
         if existing_invoice:
