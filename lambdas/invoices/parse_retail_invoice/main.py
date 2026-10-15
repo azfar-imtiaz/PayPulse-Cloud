@@ -9,6 +9,7 @@ from parser_factory import get_parser_for_subtype, extract_subtype_from_s3_path,
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.exceptions import DatabaseError, S3Error
 from utils.dynamodb_utils import write_ledger_entry, upsert_retail_invoice_to_dynamodb
+from utils.vendor_normalization import resolve_vendor_name
 
 
 # Configure logging
@@ -33,10 +34,12 @@ GEMINI_API_KEY = os.environ['GEMINI_API_KEY']
 # Only set when this Lambda is wired into the sweep pipeline (Phase 7) - absent in the
 # original vendor-driven-only deployment, so default to None rather than a hard KeyError.
 RETAIL_EMAIL_CLASSIFICATION_LEDGER_TABLE = os.environ.get('RETAIL_EMAIL_CLASSIFICATION_LEDGER_TABLE')
+VENDOR_ALIASES_TABLE = os.environ['VENDOR_ALIASES_TABLE']
 
 # DynamoDB table references
 retail_invoices_table = dynamodb.Table(RETAIL_INVOICES_TABLE)
 ledger_table = dynamodb.Table(RETAIL_EMAIL_CLASSIFICATION_LEDGER_TABLE) if RETAIL_EMAIL_CLASSIFICATION_LEDGER_TABLE else None
+vendor_aliases_table = dynamodb.Table(VENDOR_ALIASES_TABLE)
 
 # Detail tables mapping
 detail_tables = {
@@ -180,6 +183,8 @@ def lambda_handler(event, context):
                 500,
                 Exception("Gemini API parsing failed")
             )
+
+        parsed_data['vendor_name'] = resolve_vendor_name(parsed_data.get('vendor_name'), vendor_aliases_table)
 
         # Per base_parser.py's extraction instructions, Gemini returns 0 for any numeric
         # field it couldn't find in the email - so total_amount == 0 is "I found no amount,"
