@@ -32,14 +32,34 @@ Usage:
 """
 
 import argparse
+import json
 from collections import defaultdict
+from datetime import datetime, timezone
+from decimal import Decimal
 
 import boto3
 from boto3.dynamodb.conditions import Attr
+from botocore.exceptions import ClientError
 
 REGION = "eu-west-1"
 TABLE_NAME = "RetailInvoices"
 LEGACY_DISCOVERY_SOURCE = "legacy-vendor-pipeline"
+
+
+class _DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return str(o)
+        return super().default(o)
+
+
+def snapshot_items(items, path):
+    """Dump full pre-write item state to a local JSON file, so every write this script
+    makes has an exact, scriptable undo (restore via BatchWriteItem put_item) independent
+    of DynamoDB's 35-day point-in-time-recovery window."""
+    with open(path, "w") as f:
+        json.dump(items, f, cls=_DecimalEncoder, indent=2)
+    print(f"\n[Snapshot] Wrote pre-write state of {len(items)} row(s) to {path}")
 
 
 def scan_all_items(table):
@@ -63,12 +83,17 @@ def backfill_discovery_source(table, items, apply_writes):
     for item in to_backfill:
         item["discovery_source"] = LEGACY_DISCOVERY_SOURCE
         if apply_writes:
-            table.update_item(
-                Key={"UserID": item["UserID"], "InvoiceID": item["InvoiceID"]},
-                UpdateExpression="SET discovery_source = :src",
-                ConditionExpression=Attr("discovery_source").not_exists(),
-                ExpressionAttributeValues={":src": LEGACY_DISCOVERY_SOURCE},
-            )
+            try:
+                table.update_item(
+                    Key={"UserID": item["UserID"], "InvoiceID": item["InvoiceID"]},
+                    UpdateExpression="SET discovery_source = :src",
+                    ConditionExpression=Attr("discovery_source").not_exists(),
+                    ExpressionAttributeValues={":src": LEGACY_DISCOVERY_SOURCE},
+                )
+            except ClientError as e:
+                if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                    raise
+                print(f"  [skip] {item['InvoiceID']} got a discovery_source concurrently - leaving as-is")
 
     return to_backfill
 
@@ -132,8 +157,12 @@ def group_duplicates(items):
 
 
 def pick_canonical(group):
-    """Most-recent created_at wins; lexicographically smallest InvoiceID as a tiebreak."""
-    return sorted(group, key=lambda item: (item.get("created_at", ""), item["InvoiceID"]))[-1]
+    """Most-recent created_at wins, excluding rows already marked is_duplicate; tiebreak on
+    smallest InvoiceID. Returns None if every row in the group is already a duplicate."""
+    candidates = [item for item in group if not item.get("is_duplicate")]
+    if not candidates:
+        return None
+    return sorted(candidates, key=lambda item: (item.get("created_at", ""), item["InvoiceID"]))[-1]
 
 
 def compute_new_vendor_order_key(item):
@@ -151,8 +180,14 @@ def compute_new_vendor_order_key(item):
     return None
 
 
-def apply_merge(table, group, apply_writes, merged_report, review_report):
+def apply_merge(table, group, apply_writes, merged_report, review_report, skipped_report):
     canonical = pick_canonical(group)
+    if canonical is None:
+        skipped_report.append({
+            "reason": "all rows already is_duplicate",
+            "invoice_ids": [item["InvoiceID"] for item in group],
+        })
+        return
     canonical_amount = canonical.get("total_amount")
 
     for item in group:
@@ -182,22 +217,38 @@ def apply_merge(table, group, apply_writes, merged_report, review_report):
         })
 
         if apply_writes:
-            table.update_item(
-                Key={"UserID": item["UserID"], "InvoiceID": item["InvoiceID"]},
-                UpdateExpression="SET is_duplicate = :true, duplicate_of_invoice_id = :canonical_id",
-                ExpressionAttributeValues={
-                    ":true": True,
-                    ":canonical_id": canonical["InvoiceID"],
-                },
-            )
+            # Condition guards against a concurrent write (e.g. a manual mark-duplicate
+            # call, or the live sweep pipeline) flipping this row's is_duplicate state
+            # between the scan at the top of this script and this write.
+            try:
+                table.update_item(
+                    Key={"UserID": item["UserID"], "InvoiceID": item["InvoiceID"]},
+                    UpdateExpression="SET is_duplicate = :true, duplicate_of_invoice_id = :canonical_id",
+                    ConditionExpression="attribute_not_exists(is_duplicate) OR is_duplicate = :false",
+                    ExpressionAttributeValues={
+                        ":true": True,
+                        ":false": False,
+                        ":canonical_id": canonical["InvoiceID"],
+                    },
+                )
+            except ClientError as e:
+                if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                    raise
+                print(f"  [skip] {item['InvoiceID']} changed concurrently - leaving as-is")
 
     new_key = compute_new_vendor_order_key(canonical)
     if apply_writes and new_key and canonical.get("vendor_order_key") != new_key:
-        table.update_item(
-            Key={"UserID": canonical["UserID"], "InvoiceID": canonical["InvoiceID"]},
-            UpdateExpression="SET vendor_order_key = :key",
-            ExpressionAttributeValues={":key": new_key},
-        )
+        try:
+            table.update_item(
+                Key={"UserID": canonical["UserID"], "InvoiceID": canonical["InvoiceID"]},
+                UpdateExpression="SET vendor_order_key = :key",
+                ConditionExpression="attribute_not_exists(is_duplicate) OR is_duplicate = :false",
+                ExpressionAttributeValues={":key": new_key, ":false": False},
+            )
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+            print(f"  [skip] {canonical['InvoiceID']} became a duplicate concurrently - not rewriting its vendor_order_key")
 
 
 def print_report(title, rows):
@@ -222,6 +273,10 @@ def main():
     items = scan_all_items(table)
     print(f"Scanned {len(items)} total rows.")
 
+    if apply_writes:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        snapshot_items(items, f"retail_invoices_pre_merge_snapshot_{timestamp}.json")
+
     backfill_discovery_source(table, items, apply_writes)
 
     groups = group_duplicates(items)
@@ -236,11 +291,13 @@ def main():
 
     merged_report = []
     review_report = []
+    skipped_report = []
     for group in groups:
-        apply_merge(table, group, apply_writes, merged_report, review_report)
+        apply_merge(table, group, apply_writes, merged_report, review_report, skipped_report)
 
     print_report("Merged" if apply_writes else "Would merge", merged_report)
     print_report("Needs manual review (amount mismatch)", review_report)
+    print_report("Skipped (all rows already duplicates)", skipped_report)
 
     if not apply_writes:
         print("\nDry run - no writes performed. Re-run with --apply to write changes.")
