@@ -450,10 +450,15 @@ def delete_retail_invoice_details(detail_tables_dict: Dict, invoice_ids: list) -
 
 
 def _build_retail_list_filter(exclude_sources=None):
-    """Base is_duplicate filter, ANDed with discovery_source exclusions if any are given."""
+    """Base is_duplicate filter, ANDed with discovery_source exclusions if any are given.
+    Also requires total_amount > 0 - DynamoDB's type-mismatch comparison rules mean this
+    single condition excludes missing, NULL-type, zero, and negative values all at once,
+    which keeps malformed rows (failed extractions with no amount) out of list/count
+    responses regardless of how they ended up in the table."""
     filter_expr = Attr('is_duplicate').not_exists() | Attr('is_duplicate').eq(False)
     for src in (exclude_sources or []):
         filter_expr = filter_expr & Attr('discovery_source').ne(src)
+    filter_expr = filter_expr & Attr('total_amount').gt(0)
     return filter_expr
 
 
