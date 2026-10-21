@@ -19,6 +19,7 @@ resource "aws_lambda_function" "gmail_store_tokens" {
     variables = {
       JWT_SECRET = var.jwt_secret_version_secret_string
       REGION     = var.aws_region
+      S3_BUCKET  = var.invoices_bucket_name
     }
   }
 

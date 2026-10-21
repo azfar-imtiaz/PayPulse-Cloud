@@ -122,7 +122,7 @@ def lambda_handler(event, context, user_id):
         # Create user folder structure in S3 if bucket is configured
         if S3_BUCKET:
             try:
-                create_user_folder_in_s3(s3_client, user_id, S3_BUCKET)
+                create_user_folders_in_s3(s3_client, user_id, S3_BUCKET)
                 print(f"Created S3 folder structure for user {user_id}")
             except Exception as e:
                 print(f"Warning: Failed to create S3 folder structure for user {user_id}: {e}")

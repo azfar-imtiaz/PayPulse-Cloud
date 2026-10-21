@@ -40,6 +40,16 @@ resource "aws_iam_policy" "gmail_store_tokens_lambda_policy" {
         ],
         Effect   = "Allow",
         Resource = "arn:aws:logs:*:*:*"
+      },
+      # S3 - PutObject to create the user's folder structure. Previously dead code (no
+      # S3_BUCKET env var was wired, so this call path never ran) - now that S3_BUCKET is
+      # set and the undefined-function bug is fixed, this path actually executes.
+      {
+        Action = [
+          "s3:PutObject"
+        ],
+        Effect   = "Allow",
+        Resource = "arn:aws:s3:::${var.invoices_bucket_name}/invoices/*"
       }
     ]
   })
