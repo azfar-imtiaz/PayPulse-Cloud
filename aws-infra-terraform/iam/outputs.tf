@@ -55,6 +55,16 @@ output "fetch_and_classify_retail_invoices_lambda_role_arn" {
   value       = aws_iam_role.fetch_and_classify_retail_invoices_lambda_role.arn
 }
 
+output "outlook_store_tokens_lambda_role_arn" {
+  description = "ARN of the Outlook store tokens lambda role"
+  value       = aws_iam_role.outlook_store_tokens_lambda_role.arn
+}
+
+output "fetch_and_classify_outlook_invoices_lambda_role_arn" {
+  description = "ARN of the fetch and classify outlook invoices (sweep) lambda role"
+  value       = aws_iam_role.fetch_and_classify_outlook_invoices_lambda_role.arn
+}
+
 output "parse_retail_invoice_lambda_role_arn" {
   description = "ARN of the parse retail invoice lambda role"
   value       = aws_iam_role.parse_retail_invoice_lambda_role.arn

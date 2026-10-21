@@ -24,6 +24,21 @@ variable "lambda_fetch_and_classify_retail_invoices" {
   description = "The lambda function for the broad Gmail sweep + Jev classification retail invoice discovery pipeline"
 }
 
+variable "lambda_outlook_store_tokens" {
+  type        = string
+  description = "The lambda function stores OAuth tokens received from iOS app for Outlook/Microsoft Graph access"
+}
+
+variable "lambda_fetch_and_classify_outlook_invoices" {
+  type        = string
+  description = "The lambda function for the broad Outlook sweep + Jev classification retail invoice discovery pipeline"
+}
+
+variable "outlook_oauth_client_id" {
+  type        = string
+  description = "Microsoft Entra application (client) ID for Outlook/Microsoft Graph access"
+}
+
 variable "lambda_fetch_latest_rental_invoice" {
   type        = string
   description = "The lambda function for fetching the latest invoice from the email inbox"
@@ -213,6 +228,16 @@ variable "fetch_retail_invoices_lambda_role_arn" {
 variable "fetch_and_classify_retail_invoices_lambda_role_arn" {
   type        = string
   description = "The ARN of the fetch and classify retail invoices (sweep) lambda role"
+}
+
+variable "outlook_store_tokens_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the outlook store tokens lambda role"
+}
+
+variable "fetch_and_classify_outlook_invoices_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the fetch and classify outlook invoices (sweep) lambda role"
 }
 
 variable "parse_retail_invoice_lambda_role_arn" {

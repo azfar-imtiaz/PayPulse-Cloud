@@ -134,6 +134,21 @@ output "fetch_and_classify_retail_invoices_arn" {
   value       = aws_lambda_function.fetch_and_classify_retail_invoices.arn
 }
 
+output "outlook_store_tokens_function_name" {
+  description = "Name of the Outlook store tokens lambda function"
+  value       = aws_lambda_function.outlook_store_tokens.function_name
+}
+
+output "outlook_store_tokens_invoke_arn" {
+  description = "Invoke ARN of the Outlook store tokens lambda function"
+  value       = aws_lambda_function.outlook_store_tokens.invoke_arn
+}
+
+output "fetch_and_classify_outlook_invoices_arn" {
+  description = "ARN of the fetch and classify outlook invoices (sweep) lambda function"
+  value       = aws_lambda_function.fetch_and_classify_outlook_invoices.arn
+}
+
 output "parse_retail_invoice_function_name" {
   description = "Name of the parse retail invoice lambda function"
   value       = aws_lambda_function.parse_retail_invoice.function_name

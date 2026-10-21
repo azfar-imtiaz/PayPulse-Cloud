@@ -17,18 +17,18 @@ resource "aws_lambda_function" "parse_retail_invoice" {
 
   environment {
     variables = {
-      RETAIL_INVOICES_TABLE        = var.retail_invoices_table_name
-      FOOD_DELIVERY_INVOICES_TABLE = var.food_delivery_invoices_table_name
-      CLOTHING_INVOICES_TABLE      = var.clothing_invoices_table_name
-      TECHNOLOGY_INVOICES_TABLE    = var.technology_invoices_table_name
-      SUBSCRIPTION_INVOICES_TABLE  = var.subscription_invoices_table_name
-      GROCERY_INVOICES_TABLE       = var.grocery_invoices_table_name
-      MISC_UTILITY_INVOICES_TABLE  = var.misc_utility_invoices_table_name
-      MISC_INVOICES_TABLE          = var.misc_invoices_table_name
-      TRAVEL_INVOICES_TABLE        = var.travel_invoices_table_name
-      GEMINI_API_KEY               = var.gemini_api_key_secret_string
+      RETAIL_INVOICES_TABLE                    = var.retail_invoices_table_name
+      FOOD_DELIVERY_INVOICES_TABLE             = var.food_delivery_invoices_table_name
+      CLOTHING_INVOICES_TABLE                  = var.clothing_invoices_table_name
+      TECHNOLOGY_INVOICES_TABLE                = var.technology_invoices_table_name
+      SUBSCRIPTION_INVOICES_TABLE              = var.subscription_invoices_table_name
+      GROCERY_INVOICES_TABLE                   = var.grocery_invoices_table_name
+      MISC_UTILITY_INVOICES_TABLE              = var.misc_utility_invoices_table_name
+      MISC_INVOICES_TABLE                      = var.misc_invoices_table_name
+      TRAVEL_INVOICES_TABLE                    = var.travel_invoices_table_name
+      GEMINI_API_KEY                           = var.gemini_api_key_secret_string
       RETAIL_EMAIL_CLASSIFICATION_LEDGER_TABLE = var.retail_email_classification_ledger_table_name
-      VENDOR_ALIASES_TABLE         = var.vendor_aliases_table_name
+      VENDOR_ALIASES_TABLE                     = var.vendor_aliases_table_name
     }
   }
 

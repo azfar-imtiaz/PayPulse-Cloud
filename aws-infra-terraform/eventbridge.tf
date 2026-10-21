@@ -34,11 +34,22 @@ resource "aws_cloudwatch_event_rule" "retail_sweep_trigger" {
   is_enabled          = true
 }
 
-# Target for retail invoice sweep trigger
+# Target for retail invoice sweep trigger (Gmail)
 resource "aws_cloudwatch_event_target" "retail_sweep_target" {
   rule      = aws_cloudwatch_event_rule.retail_sweep_trigger.name
   target_id = "RetailInvoiceSweepTarget"
   arn       = module.lambdas.fetch_and_classify_retail_invoices_arn
+}
+
+# Second target on the same sweep rule for Outlook - per plan decision, reuses the
+# existing rule rather than a separate one, since both providers sweep on the same
+# cadence. Needs its own aws_lambda_permission (see
+# lambda_fetch_and_classify_outlook_invoices.tf) since EventBridge invoking two different
+# Lambdas off one rule requires a permission grant per target.
+resource "aws_cloudwatch_event_target" "outlook_sweep_target" {
+  rule      = aws_cloudwatch_event_rule.retail_sweep_trigger.name
+  target_id = "OutlookInvoiceSweepTarget"
+  arn       = module.lambdas.fetch_and_classify_outlook_invoices_arn
 }
 
 # DynamoDB trigger event for send_invoice_notification lambda function

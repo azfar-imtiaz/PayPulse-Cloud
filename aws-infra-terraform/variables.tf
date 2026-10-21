@@ -298,6 +298,24 @@ variable "lambda_fetch_and_classify_retail_invoices" {
   default     = "fetch_and_classify_retail_invoices"
 }
 
+variable "lambda_outlook_store_tokens" {
+  type        = string
+  description = "The lambda function stores OAuth tokens received from iOS app for Outlook/Microsoft Graph access"
+  default     = "outlook_store_tokens"
+}
+
+variable "lambda_fetch_and_classify_outlook_invoices" {
+  type        = string
+  description = "The lambda function for the broad Outlook sweep + Jev classification retail invoice discovery pipeline"
+  default     = "fetch_and_classify_outlook_invoices"
+}
+
+variable "outlook_oauth_client_id" {
+  type        = string
+  description = "Microsoft Entra application (client) ID for Outlook/Microsoft Graph access. Public app ID, not a secret."
+  default     = "6861aa59-75ec-4dac-883e-0f9b96aa6576"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"
