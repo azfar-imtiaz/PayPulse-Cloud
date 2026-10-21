@@ -213,6 +213,184 @@ def update_oauth_tokens(user_id: str, access_token: str, refresh_token: str, exp
         raise SecretsManagerError(f"Error updating OAuth tokens for user {user_id}") from e
 
 
+def store_outlook_oauth_tokens(user_id: str, access_token: str, refresh_token: Optional[str], expires_in: int, scope: str, region: str, outlook_user_info: Dict[str, str] = None):
+    """
+    Stores Outlook OAuth tokens for a user in Secrets Manager.
+
+    Args:
+        user_id: The user ID
+        access_token: OAuth access token
+        refresh_token: OAuth refresh token
+        expires_in: Token expiration in seconds
+        scope: OAuth scope granted
+        region: AWS region
+        outlook_user_info: Outlook user information (optional)
+
+    Raises:
+        SecretsManagerError: If storage fails
+    """
+    from utils.oauth_utils import prepare_oauth_secret_data
+
+    secret_name = f"outlook/user/{user_id}"
+
+    oauth_data = prepare_oauth_secret_data(access_token, refresh_token, expires_in, scope, outlook_user_info)
+
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region
+    )
+
+    try:
+        client.update_secret(
+            SecretId=secret_name,
+            SecretString=json.dumps(oauth_data)
+        )
+        logging.info(f"Updated Outlook OAuth tokens for user {user_id}")
+
+    except client.exceptions.ResourceNotFoundException:
+        try:
+            client.create_secret(
+                Name=secret_name,
+                SecretString=json.dumps(oauth_data)
+            )
+            logging.info(f"Created Outlook OAuth tokens for user {user_id}")
+        except Exception as e:
+            raise SecretsManagerError(f"Error creating Outlook OAuth secret for user {user_id}") from e
+
+    except ClientError as e:
+        raise SecretsManagerError(f"Error storing Outlook OAuth tokens for user {user_id}") from e
+
+
+def get_outlook_oauth_tokens(user_id: str, region: str) -> Dict:
+    """
+    Retrieves Outlook OAuth tokens for a user from Secrets Manager.
+
+    Args:
+        user_id: The user ID
+        region: AWS region
+
+    Returns:
+        Dictionary containing OAuth token data
+
+    Raises:
+        SecretsManagerError: If retrieval fails
+    """
+    secret_name = f"outlook/user/{user_id}"
+
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        raise SecretsManagerError(f"Error retrieving Outlook OAuth tokens for user {user_id}") from e
+
+    secret = get_secret_value_response['SecretString']
+    oauth_data = json.loads(secret)
+
+    from datetime import datetime
+    if 'expires_at' in oauth_data:
+        expires_at = datetime.fromisoformat(oauth_data['expires_at'])
+        if datetime.utcnow() >= expires_at:
+            logging.warning(f"Outlook access token for user {user_id} has expired")
+            oauth_data['is_expired'] = True
+
+    return oauth_data
+
+
+def update_outlook_oauth_tokens(user_id: str, access_token: str, refresh_token: str, expires_in: int, region: str):
+    """
+    Updates existing Outlook OAuth tokens for a user in Secrets Manager (used for token refresh).
+
+    Critical: Microsoft rotates and invalidates the refresh token on every use. The caller
+    (outlook_api_utils.create_outlook_client) must pass Microsoft's new refresh_token here
+    unconditionally - this function does not fall back to a prior token under any circumstance.
+
+    Args:
+        user_id: The user ID
+        access_token: New OAuth access token
+        refresh_token: Microsoft's new OAuth refresh token (must not be the old one)
+        expires_in: Token expiration in seconds
+        region: AWS region
+
+    Raises:
+        SecretsManagerError: If update fails
+    """
+    from utils.oauth_utils import prepare_oauth_secret_data
+
+    secret_name = f"outlook/user/{user_id}"
+
+    try:
+        existing_data = get_outlook_oauth_tokens(user_id, region)
+        scope = existing_data.get('scope', 'Mail.Read offline_access')
+        outlook_user_info = {
+            'outlook_user_id': existing_data.get('outlook_user_id', ''),
+            'outlook_email': existing_data.get('outlook_email', ''),
+            'outlook_name': existing_data.get('outlook_name', '')
+        }
+    except SecretsManagerError:
+        scope = 'Mail.Read offline_access'
+        outlook_user_info = None
+
+    oauth_data = prepare_oauth_secret_data(access_token, refresh_token, expires_in, scope, outlook_user_info)
+
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region
+    )
+
+    try:
+        client.update_secret(
+            SecretId=secret_name,
+            SecretString=json.dumps(oauth_data)
+        )
+        logging.info(f"Successfully updated Outlook OAuth tokens for user {user_id}")
+
+    except ClientError as e:
+        raise SecretsManagerError(f"Error updating Outlook OAuth tokens for user {user_id}") from e
+
+
+def delete_outlook_oauth_tokens(user_id: str, region: str):
+    """
+    Deletes Outlook OAuth tokens for a user from Secrets Manager.
+    Used when refresh tokens are expired/revoked and need to be cleared.
+
+    Args:
+        user_id: The user ID
+        region: AWS region
+
+    Raises:
+        SecretsManagerError: If deletion fails
+    """
+    secret_name = f"outlook/user/{user_id}"
+
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region
+    )
+
+    try:
+        client.delete_secret(
+            SecretId=secret_name,
+            ForceDeleteWithoutRecovery=True
+        )
+        logging.info(f"Successfully deleted Outlook OAuth tokens for user {user_id}")
+
+    except client.exceptions.ResourceNotFoundException:
+        logging.warning(f"No Outlook OAuth tokens found for user {user_id}")
+
+    except ClientError as e:
+        raise SecretsManagerError(f"Error deleting Outlook OAuth tokens for user {user_id}") from e
+
+
 def delete_oauth_tokens(user_id: str, region: str):
     """
     Deletes OAuth tokens for a user from Secrets Manager.

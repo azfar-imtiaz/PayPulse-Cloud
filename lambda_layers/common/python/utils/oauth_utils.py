@@ -132,6 +132,94 @@ def get_google_user_info(access_token: str) -> Dict[str, str]:
         raise OAuthValidationError(f"Unexpected error getting Google user info: {str(e)}") from e
 
 
+def get_outlook_user_info(access_token: str) -> Dict[str, str]:
+    """
+    Gets Outlook/Microsoft account user information from access token via Microsoft Graph.
+
+    Args:
+        access_token: Valid Microsoft Graph OAuth access token
+
+    Returns:
+        Dictionary containing Outlook user ID, email, and name
+
+    Raises:
+        OAuthValidationError: If user info retrieval fails
+    """
+    try:
+        request = Request(
+            'https://graph.microsoft.com/v1.0/me',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+
+        with urlopen(request, timeout=10) as response:
+            if response.status == 200:
+                user_info = json.loads(response.read().decode('utf-8'))
+                return {
+                    'outlook_user_id': user_info.get('id', ''),
+                    'outlook_email': user_info.get('mail') or user_info.get('userPrincipalName', ''),
+                    'outlook_name': user_info.get('displayName', '')
+                }
+            else:
+                raise OAuthValidationError(f"Failed to get Outlook user info: HTTP {response.status}")
+
+    except (URLError, HTTPError) as e:
+        raise OAuthValidationError(f"Network error getting Outlook user info: {str(e)}") from e
+    except Exception as e:
+        raise OAuthValidationError(f"Unexpected error getting Outlook user info: {str(e)}") from e
+
+
+def validate_outlook_account_consistency(user_id: str, new_outlook_user_id: str, new_outlook_email: str, region: str) -> Dict[str, Any]:
+    """
+    Validates if user is connecting the same Outlook account or switching accounts.
+
+    Args:
+        user_id: Internal user ID
+        new_outlook_user_id: Outlook user ID from new OAuth tokens
+        new_outlook_email: Outlook email from new OAuth tokens
+        region: AWS region
+
+    Returns:
+        Dictionary with validation results and existing account info
+
+    Raises:
+        OAuthValidationError: If validation fails
+    """
+    try:
+        from utils.secretsmanager_utils import get_outlook_oauth_tokens
+
+        try:
+            existing_oauth_data = get_outlook_oauth_tokens(user_id, region)
+            existing_outlook_user_id = existing_oauth_data.get('outlook_user_id')
+            existing_outlook_email = existing_oauth_data.get('outlook_email')
+
+            if existing_outlook_user_id and existing_outlook_user_id != new_outlook_user_id:
+                return {
+                    'is_account_switch': True,
+                    'existing_email': existing_outlook_email,
+                    'new_email': new_outlook_email,
+                    'message': f"Switching from {existing_outlook_email} to {new_outlook_email}"
+                }
+            else:
+                return {
+                    'is_account_switch': False,
+                    'existing_email': existing_outlook_email,
+                    'new_email': new_outlook_email,
+                    'message': "Same Outlook account or first connection"
+                }
+
+        except Exception:
+            # No existing OAuth data found - first connection
+            return {
+                'is_account_switch': False,
+                'existing_email': None,
+                'new_email': new_outlook_email,
+                'message': "First Outlook connection"
+            }
+
+    except Exception as e:
+        raise OAuthValidationError(f"Error validating Outlook account consistency: {str(e)}") from e
+
+
 def validate_google_account_consistency(user_id: str, new_google_user_id: str, new_google_email: str, region: str) -> Dict[str, Any]:
     """
     Validates if user is connecting the same Google account or switching accounts.

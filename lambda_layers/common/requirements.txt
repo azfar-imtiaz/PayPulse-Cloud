@@ -1,0 +1,2 @@
+# HTTP client for Microsoft Graph API calls (outlook_api_utils.py)
+requests
