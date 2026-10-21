@@ -297,6 +297,33 @@ def update_last_retail_sweep_fetch(users_table, user_id: str) -> None:
         raise DatabaseError(f"Error updating last_retail_sweep_fetch for user {user_id}") from e
 
 
+def update_last_outlook_sweep_fetch(users_table, user_id: str) -> None:
+    """
+    Update user's last_outlook_sweep_fetch timestamp to current time.
+
+    Separate field from last_retail_sweep_fetch (Gmail) so the two providers' sweeps
+    don't collide while both run against the same user.
+
+    Args:
+        users_table: DynamoDB table resource for Users
+        user_id: User ID
+    """
+    try:
+        current_timestamp = datetime.now(timezone.utc).isoformat()
+
+        users_table.update_item(
+            Key={'UserID': user_id},
+            UpdateExpression='SET last_outlook_sweep_fetch = :timestamp',
+            ExpressionAttributeValues={
+                ':timestamp': current_timestamp
+            }
+        )
+
+        logging.info(f"Updated last_outlook_sweep_fetch for user {user_id}: {current_timestamp}")
+    except ClientError as e:
+        raise DatabaseError(f"Error updating last_outlook_sweep_fetch for user {user_id}") from e
+
+
 def _convert_floats_to_decimal(value):
     """
     Recursively convert native Python floats to Decimal, since boto3's DynamoDB
