@@ -144,6 +144,16 @@ output "outlook_store_tokens_invoke_arn" {
   value       = aws_lambda_function.outlook_store_tokens.invoke_arn
 }
 
+output "outlook_oauth_callback_function_name" {
+  description = "Name of the Outlook OAuth callback bounce lambda function"
+  value       = aws_lambda_function.outlook_oauth_callback.function_name
+}
+
+output "outlook_oauth_callback_invoke_arn" {
+  description = "Invoke ARN of the Outlook OAuth callback bounce lambda function"
+  value       = aws_lambda_function.outlook_oauth_callback.invoke_arn
+}
+
 output "fetch_and_classify_outlook_invoices_arn" {
   description = "ARN of the fetch and classify outlook invoices (sweep) lambda function"
   value       = aws_lambda_function.fetch_and_classify_outlook_invoices.arn

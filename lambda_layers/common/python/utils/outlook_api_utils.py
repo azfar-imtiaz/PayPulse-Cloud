@@ -267,15 +267,30 @@ def extract_html_from_outlook_message(message_json: Dict[str, Any]) -> str:
 def derive_vendor_slug_from_sender(from_field: str) -> str:
     """
     Derive a vendor slug from a sender string, for S3 key/filename purposes only.
-    Reuses Gmail's regex-based slug function - both providers' sender strings end up in
-    the same "Name <email@domain>" shape by the time they reach this function (see
-    get_email_metadata_light's sender formatting above).
+
+    Same regex-based logic as gmail_api_utils.derive_vendor_slug_from_sender (both
+    providers' sender strings end up in the same "Name <email@domain>" shape by the time
+    they reach this function) - duplicated here rather than imported, since
+    gmail_api_utils.py has a module-level `googleapiclient` import that isn't available
+    in this Lambda's layers (google_api_layer was deliberately dropped - this Lambda
+    doesn't call the Gmail API), which made the cross-import fail at call time in
+    production with "No module named 'googleapiclient'".
 
     Args:
         from_field: Sender string, e.g. "Elgiganten <noreply@elgiganten.se>"
 
     Returns:
         A lowercase slug derived from the domain's second-level name, e.g. "elgiganten".
+        Falls back to "unknown-vendor" if no parseable email address is found.
     """
-    from utils.gmail_api_utils import derive_vendor_slug_from_sender as gmail_derive_vendor_slug
-    return gmail_derive_vendor_slug(from_field)
+    import re
+
+    match = re.search(r'[\w.+-]+@([\w.-]+)', from_field or '')
+    if not match:
+        return "unknown-vendor"
+
+    domain = match.group(1).lower()
+    parts = domain.split('.')
+    slug = parts[-2] if len(parts) >= 2 else parts[0]
+    slug = re.sub(r'[^a-z0-9]+', '-', slug).strip('-')
+    return slug or "unknown-vendor"

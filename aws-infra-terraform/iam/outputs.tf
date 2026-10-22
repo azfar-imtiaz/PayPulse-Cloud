@@ -60,6 +60,11 @@ output "outlook_store_tokens_lambda_role_arn" {
   value       = aws_iam_role.outlook_store_tokens_lambda_role.arn
 }
 
+output "outlook_oauth_callback_lambda_role_arn" {
+  description = "ARN of the Outlook OAuth callback bounce lambda role"
+  value       = aws_iam_role.outlook_oauth_callback_lambda_role.arn
+}
+
 output "fetch_and_classify_outlook_invoices_lambda_role_arn" {
   description = "ARN of the fetch and classify outlook invoices (sweep) lambda role"
   value       = aws_iam_role.fetch_and_classify_outlook_invoices_lambda_role.arn

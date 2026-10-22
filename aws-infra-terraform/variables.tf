@@ -316,6 +316,12 @@ variable "outlook_oauth_client_id" {
   default     = "6861aa59-75ec-4dac-883e-0f9b96aa6576"
 }
 
+variable "lambda_outlook_oauth_callback" {
+  type        = string
+  description = "The lambda function that bounces Microsoft's OAuth redirect back to the iOS app's custom URL scheme"
+  default     = "outlook_oauth_callback"
+}
+
 variable "rental_invoice_email" {
   type        = string
   description = "The email address from which we receive rental invoices"

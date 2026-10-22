@@ -26,7 +26,7 @@ cd build
 echo "Installing dependencies..."
 pip install -r ../requirements.txt --target python/ --upgrade \
     --platform manylinux2014_x86_64 --only-binary=:all: \
-    --python-version 3.10 --implementation cp
+    --python-version 3.9 --implementation cp
 
 echo "Creating layer zip file..."
 zip -r ../utils_layer.zip python/ -x "*/__pycache__/*"

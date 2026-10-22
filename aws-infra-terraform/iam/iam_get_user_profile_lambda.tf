@@ -29,7 +29,10 @@ resource "aws_iam_policy" "get_user_profile_lambda_policy" {
         Action = [
           "secretsmanager:GetSecretValue"
         ],
-        Resource = "arn:aws:secretsmanager:*:*:secret:gmail/user/*"
+        Resource = [
+          "arn:aws:secretsmanager:*:*:secret:gmail/user/*",
+          "arn:aws:secretsmanager:*:*:secret:outlook/user/*"
+        ]
       }
     ]
   })

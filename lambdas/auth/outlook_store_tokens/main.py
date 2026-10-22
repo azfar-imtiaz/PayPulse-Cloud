@@ -1,6 +1,7 @@
 import os
 import json
 import boto3
+import requests
 from urllib.parse import parse_qs
 from urllib.error import URLError, HTTPError
 
@@ -8,6 +9,7 @@ from utils.decorators import require_auth
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.secretsmanager_utils import store_outlook_oauth_tokens
 from utils.oauth_utils import validate_oauth_tokens, get_outlook_user_info, validate_outlook_account_consistency
+from utils.outlook_api_utils import TOKEN_URL
 from utils.s3_utils import create_user_folders_in_s3
 from utils.exceptions import (
     SecretsManagerError,
@@ -16,21 +18,47 @@ from utils.exceptions import (
 
 REGION = os.environ['REGION']
 S3_BUCKET = os.environ.get('S3_BUCKET', '')
+OUTLOOK_OAUTH_CLIENT_ID = os.environ['OUTLOOK_OAUTH_CLIENT_ID']
+OUTLOOK_OAUTH_CLIENT_SECRET = os.environ['OUTLOOK_OAUTH_CLIENT_SECRET']
+OUTLOOK_REDIRECT_URI = os.environ['OUTLOOK_REDIRECT_URI']
 
 s3_client = boto3.client('s3')
+
+
+def exchange_code_for_tokens(code: str, code_verifier: str) -> dict:
+    """
+    Exchanges an OAuth authorization code for an access/refresh token pair via Microsoft's
+    token endpoint. The client secret is only ever held here, server-side - the iOS app never
+    sees a token of any kind, only the opaque authorization code.
+    """
+    response = requests.post(TOKEN_URL, data={
+        'client_id': OUTLOOK_OAUTH_CLIENT_ID,
+        'client_secret': OUTLOOK_OAUTH_CLIENT_SECRET,
+        'grant_type': 'authorization_code',
+        'code': code,
+        'code_verifier': code_verifier,
+        'redirect_uri': OUTLOOK_REDIRECT_URI,
+        'scope': 'User.Read Mail.Read offline_access openid email'
+    }, timeout=10)
+
+    if response.status_code != 200:
+        error_body = response.json() if response.content else {}
+        raise OAuthValidationError(f"Outlook code exchange failed: HTTP {response.status_code} - {error_body}")
+
+    return response.json()
+
 
 @require_auth
 def lambda_handler(event, context, user_id):
     """
-    Receives Outlook OAuth tokens directly from iOS app (MSAL) and stores them in
-    SecretsManager - requires JWT authentication.
+    Receives an Outlook OAuth authorization code from the iOS app, exchanges it for an
+    access/refresh token pair server-side, and stores the tokens in SecretsManager - requires
+    JWT authentication.
 
     Expected request body:
     {
-        'access_token': 'string',
-        'refresh_token': 'string',
-        'expires_in': 'number',
-        'scope': ['string1', 'string2', ...],  // Array of scope strings
+        'code': 'string',
+        'code_verifier': 'string'
     }
     """
     print("Lambda function started")
@@ -39,7 +67,7 @@ def lambda_handler(event, context, user_id):
     print(f"Event body: {event.get('body')}")
 
     try:
-        print(f"Processing Outlook OAuth token storage for user: {user_id}")
+        print(f"Processing Outlook OAuth code exchange for user: {user_id}")
 
         headers = event.get('headers', {})
 
@@ -61,26 +89,28 @@ def lambda_handler(event, context, user_id):
         if 'application/x-www-form-urlencoded' in content_type:
             # Parse form data
             parsed_data = parse_qs(body)
-            access_token = parsed_data.get('access_token', [None])[0]
-            refresh_token = parsed_data.get('refresh_token', [None])[0]
-            expires_in = int(parsed_data.get('expires_in', [3600])[0])
-            scope_raw = parsed_data.get('scope', [''])[0]
-            scope = scope_raw if scope_raw else ""
-            print(f"Parsed form data - access_token: {access_token[:20]}..., refresh_token: {refresh_token[:20] if refresh_token else None}...")
+            code = parsed_data.get('code', [None])[0]
+            code_verifier = parsed_data.get('code_verifier', [None])[0]
         else:
             # Parse JSON data
             request_body = json.loads(body)
             print(f"Parsed request body: {request_body}")
-            access_token = request_body["access_token"]
-            refresh_token = request_body.get("refresh_token")
-            expires_in = request_body.get("expires_in", 3600)
-            scope_list = request_body.get("scope", [])
-            if isinstance(scope_list, list):
-                scope = " ".join(scope_list)
-            else:
-                scope = str(scope_list)
+            code = request_body["code"]
+            code_verifier = request_body["code_verifier"]
 
-        print(f"Received tokens - access_token length: {len(access_token)}, refresh_token: {'present' if refresh_token else 'missing'}")
+        print(f"Received authorization code (length {len(code)}), code_verifier present: {bool(code_verifier)}")
+
+        # Exchange the authorization code for an access/refresh token pair
+        token_data = exchange_code_for_tokens(code, code_verifier)
+        access_token = token_data['access_token']
+        refresh_token = token_data.get('refresh_token')
+        expires_in = token_data.get('expires_in', 3600)
+        scope = token_data.get('scope', '')
+
+        if not refresh_token:
+            raise OAuthValidationError("Microsoft's code exchange response did not include a refresh_token")
+
+        print(f"Exchanged code for tokens - access_token length: {len(access_token)}, refresh_token present: {bool(refresh_token)}")
         print(f"Token expires_in: {expires_in}, scope: {scope}")
 
         # Validate OAuth tokens (basic validation)
@@ -134,7 +164,7 @@ def lambda_handler(event, context, user_id):
             status_code=201
         )
 
-    except (URLError, HTTPError) as e:
+    except (URLError, HTTPError, requests.exceptions.RequestException) as e:
         return log_and_generate_error_response(
             ErrorCode.DEPENDENCY_FAILURE,
             "Network error communicating with Microsoft Graph",

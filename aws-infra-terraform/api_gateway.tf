@@ -323,6 +323,33 @@ resource "aws_lambda_permission" "outlook_store_tokens_api_permission" {
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
 
+# --- Endpoint for outlook_oauth_callback (unauthenticated bounce) ---
+
+# Connect APIGateway to outlook_oauth_callback lambda function
+resource "aws_apigatewayv2_integration" "outlook_oauth_callback_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.lambdas.outlook_oauth_callback_invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Create a route (URL path /auth/outlook/callback)
+resource "aws_apigatewayv2_route" "outlook_oauth_callback_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "GET /${var.api_version}/auth/outlook/callback"
+  target    = "integrations/${aws_apigatewayv2_integration.outlook_oauth_callback_integration.id}"
+}
+
+# Allow APIGateway to invoke the outlook_oauth_callback lambda function
+resource "aws_lambda_permission" "outlook_oauth_callback_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambdas.outlook_oauth_callback_function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}
+
 # --- Endpoint for fetch_retail_invoices ---
 
 # Connect APIGateway to fetch_retail_invoices lambda function

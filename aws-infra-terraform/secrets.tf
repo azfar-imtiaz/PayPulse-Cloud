@@ -29,6 +29,16 @@ resource "aws_secretsmanager_secret_version" "gemini_api_key_value" {
   secret_string = var.gemini_api_key
 }
 
+# Outlook OAuth client secret - used by outlook_store_tokens to exchange an authorization
+# code for tokens server-side, since MSAL never exposes a refresh token to the iOS app.
+data "aws_secretsmanager_secret" "outlook_oauth_client_secret" {
+  name = "outlook/oauth_client_secret"
+}
+
+data "aws_secretsmanager_secret_version" "outlook_oauth_client_secret_version" {
+  secret_id = data.aws_secretsmanager_secret.outlook_oauth_client_secret.id
+}
+
 # Jev (TypeSafe AI) API key for retail email classification
 resource "aws_secretsmanager_secret" "jev_api_key" {
   name        = "jev/api-key"

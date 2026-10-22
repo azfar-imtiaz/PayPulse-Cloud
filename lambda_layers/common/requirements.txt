@@ -1,2 +1,8 @@
 # HTTP client for Microsoft Graph API calls (outlook_api_utils.py)
 requests
+
+# Pinned below 2.3: urllib3 2.3+ uses `bytes | str` as a runtime expression (not a
+# deferred annotation) in _base_connection.py, which raises TypeError on Python 3.9.
+# login_user is hardcoded to runtime "python3.9" and shares this layer, so the pin
+# must satisfy the oldest runtime consuming this layer, not just the 3.12 default.
+urllib3<2.3

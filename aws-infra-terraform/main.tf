@@ -83,6 +83,9 @@ module "lambdas" {
   lambda_outlook_store_tokens                = var.lambda_outlook_store_tokens
   lambda_fetch_and_classify_outlook_invoices = var.lambda_fetch_and_classify_outlook_invoices
   outlook_oauth_client_id                    = var.outlook_oauth_client_id
+  outlook_oauth_client_secret                = jsondecode(data.aws_secretsmanager_secret_version.outlook_oauth_client_secret_version.secret_string)["client_secret"]
+  lambda_outlook_oauth_callback              = var.lambda_outlook_oauth_callback
+  outlook_oauth_redirect_uri                 = "${aws_apigatewayv2_api.paypulse_api.api_endpoint}/${var.api_version}/auth/outlook/callback"
 
   # Pass resource references
   lambda_bucket_id                 = aws_s3_bucket.lambda_bucket.id
@@ -113,6 +116,7 @@ module "lambdas" {
   start_retail_invoice_backfill_lambda_role_arn       = module.iam.start_retail_invoice_backfill_lambda_role_arn
   outlook_store_tokens_lambda_role_arn                = module.iam.outlook_store_tokens_lambda_role_arn
   fetch_and_classify_outlook_invoices_lambda_role_arn = module.iam.fetch_and_classify_outlook_invoices_lambda_role_arn
+  outlook_oauth_callback_lambda_role_arn              = module.iam.outlook_oauth_callback_lambda_role_arn
   retail_invoice_backfill_state_machine_arn           = aws_sfn_state_machine.retail_invoice_backfill.arn
   vendor_config_table_name                            = aws_dynamodb_table.vendor_config.name
   vendor_aliases_table_name                           = aws_dynamodb_table.vendor_aliases.name

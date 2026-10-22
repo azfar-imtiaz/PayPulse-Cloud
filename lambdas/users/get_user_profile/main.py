@@ -19,12 +19,12 @@ users_table = dynamodb.Table(USERS_TABLE)
 def check_gmail_connection(user_id: str) -> bool:
     """
     Check if user has Gmail OAuth tokens stored in Secrets Manager.
-    
+
     Returns:
         bool: True if Gmail account is connected, False otherwise
     """
     secret_name = f"gmail/user/{user_id}"
-    
+
     try:
         secretsmanager.get_secret_value(SecretId=secret_name)
         logging.info(f"Gmail secret found for user {user_id}")
@@ -34,6 +34,27 @@ def check_gmail_connection(user_id: str) -> bool:
         return False
     except Exception as e:
         logging.error(f"Error checking Gmail secret for user {user_id}: {e}")
+        return False
+
+
+def check_outlook_connection(user_id: str) -> bool:
+    """
+    Check if user has Outlook OAuth tokens stored in Secrets Manager.
+
+    Returns:
+        bool: True if Outlook account is connected, False otherwise
+    """
+    secret_name = f"outlook/user/{user_id}"
+
+    try:
+        secretsmanager.get_secret_value(SecretId=secret_name)
+        logging.info(f"Outlook secret found for user {user_id}")
+        return True
+    except secretsmanager.exceptions.ResourceNotFoundException:
+        logging.info(f"No Outlook secret found for user {user_id}")
+        return False
+    except Exception as e:
+        logging.error(f"Error checking Outlook secret for user {user_id}: {e}")
         return False
 
 
@@ -50,13 +71,18 @@ def lambda_handler(event, context, user_id):
         gmail_connected = check_gmail_connection(user_id)
         logging.info(f"Gmail connection status for user {user_id}: {gmail_connected}")
 
+        # Check if Outlook account is connected
+        outlook_connected = check_outlook_connection(user_id)
+        logging.info(f"Outlook connection status for user {user_id}: {outlook_connected}")
+
         return success_response(
             message="User profile retrieved successfully",
             data={
                 "name": user['Name'],
                 "email": user['Email'],
                 "created_on": user['CreatedOn'],
-                "gmail_account_connected": gmail_connected
+                "gmail_account_connected": gmail_connected,
+                "outlook_account_connected": outlook_connected
             }
         )
 

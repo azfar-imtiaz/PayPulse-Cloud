@@ -17,9 +17,12 @@ resource "aws_lambda_function" "outlook_store_tokens" {
 
   environment {
     variables = {
-      JWT_SECRET = var.jwt_secret_version_secret_string
-      REGION     = var.aws_region
-      S3_BUCKET  = var.invoices_bucket_name
+      JWT_SECRET                  = var.jwt_secret_version_secret_string
+      REGION                      = var.aws_region
+      S3_BUCKET                   = var.invoices_bucket_name
+      OUTLOOK_OAUTH_CLIENT_ID     = var.outlook_oauth_client_id
+      OUTLOOK_OAUTH_CLIENT_SECRET = var.outlook_oauth_client_secret
+      OUTLOOK_REDIRECT_URI        = var.outlook_oauth_redirect_uri
     }
   }
 

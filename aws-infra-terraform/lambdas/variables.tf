@@ -39,6 +39,22 @@ variable "outlook_oauth_client_id" {
   description = "Microsoft Entra application (client) ID for Outlook/Microsoft Graph access"
 }
 
+variable "outlook_oauth_client_secret" {
+  type        = string
+  description = "Microsoft Entra application client secret, used server-side to exchange an authorization code for tokens"
+  sensitive   = true
+}
+
+variable "lambda_outlook_oauth_callback" {
+  type        = string
+  description = "The lambda function that bounces Microsoft's OAuth redirect back to the iOS app's custom URL scheme"
+}
+
+variable "outlook_oauth_redirect_uri" {
+  type        = string
+  description = "The Web-platform redirect URI registered in Entra, used for both the /authorize and /token legs of the Outlook code exchange"
+}
+
 variable "lambda_fetch_latest_rental_invoice" {
   type        = string
   description = "The lambda function for fetching the latest invoice from the email inbox"
@@ -233,6 +249,11 @@ variable "fetch_and_classify_retail_invoices_lambda_role_arn" {
 variable "outlook_store_tokens_lambda_role_arn" {
   type        = string
   description = "The ARN of the outlook store tokens lambda role"
+}
+
+variable "outlook_oauth_callback_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the outlook OAuth callback bounce lambda role"
 }
 
 variable "fetch_and_classify_outlook_invoices_lambda_role_arn" {

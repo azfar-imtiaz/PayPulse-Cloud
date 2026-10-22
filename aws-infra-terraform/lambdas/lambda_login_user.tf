@@ -9,7 +9,7 @@ resource "aws_lambda_function" "login_user" {
   description   = "This function is triggered via the iOS app when an existing user logs in. It receives the user's email and password, verifies the user details, and then returns the access token in the response."
   function_name = "login_user"
   role          = var.wallenstam_lambda_role_arn
-  runtime       = "python3.9"
+  runtime       = var.python_runtime
   handler       = "main.lambda_handler"
 
   timeout     = 15
