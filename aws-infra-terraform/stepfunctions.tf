@@ -139,9 +139,9 @@ resource "aws_sfn_state_machine" "retail_invoice_backfill" {
               Type = "Choice"
               Choices = [
                 {
-                  Variable              = "$.Payload.statusCode"
+                  Variable                 = "$.Payload.statusCode"
                   NumericGreaterThanEquals = 400
-                  Next                  = "BatchFailed"
+                  Next                     = "BatchFailed"
                 }
               ]
               Default = "BatchSucceeded"
@@ -150,6 +150,126 @@ resource "aws_sfn_state_machine" "retail_invoice_backfill" {
               Type  = "Fail"
               Error = "BackfillBatchFailed"
               Cause = "fetch_and_classify_retail_invoices returned an error status code for this batch - check the Task output's Payload.body, or CloudWatch Logs for /aws/lambda/fetch_and_classify_retail_invoices, for details"
+            }
+            BatchSucceeded = {
+              Type = "Pass"
+              End  = true
+            }
+          }
+        }
+        End = true
+      }
+    }
+  })
+}
+
+# Outlook equivalent of the state machine above - same generic Map/Task/Retry/Choice
+# structure, fans batches out to fetch_and_classify_outlook_invoices instead. Driven by
+# scripts/start_historical_outlook_backfill.py, same pattern as the Gmail CLI script.
+
+resource "aws_iam_role" "outlook_backfill_sfn_role" {
+  name = "Outlook-Invoice-Backfill-StepFunctions-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "states.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "outlook_backfill_sfn_policy" {
+  name = "Outlook-Invoice-Backfill-StepFunctions-Policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = ["lambda:InvokeFunction"],
+        Resource = module.lambdas.fetch_and_classify_outlook_invoices_arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "outlook_backfill_sfn_policy_attachment" {
+  role       = aws_iam_role.outlook_backfill_sfn_role.name
+  policy_arn = aws_iam_policy.outlook_backfill_sfn_policy.arn
+}
+
+resource "aws_sfn_state_machine" "outlook_invoice_backfill" {
+  name     = "outlook-invoice-backfill"
+  role_arn = aws_iam_role.outlook_backfill_sfn_role.arn
+
+  definition = jsonencode({
+    Comment = "Fans out bounded historical backfill batches to fetch_and_classify_outlook_invoices"
+    StartAt = "RunBatches"
+    States = {
+      RunBatches = {
+        Type                       = "Map"
+        ItemsPath                  = "$.batches"
+        MaxConcurrency             = 4
+        ToleratedFailurePercentage = 25
+        ItemSelector = {
+          "user_id.$"    = "$$.Execution.Input.user_id"
+          "start_date.$" = "$$.Map.Item.Value.start_date"
+          "end_date.$"   = "$$.Map.Item.Value.end_date"
+          "max_pages.$"  = "$$.Map.Item.Value.max_pages"
+        }
+        Iterator = {
+          StartAt = "InvokeBackfillBatch"
+          States = {
+            InvokeBackfillBatch = {
+              Type     = "Task"
+              Resource = "arn:aws:states:::lambda:invoke"
+              Parameters = {
+                FunctionName = module.lambdas.fetch_and_classify_outlook_invoices_arn
+                Payload = {
+                  "mode"         = "backfill"
+                  "user_id.$"    = "$.user_id"
+                  "start_date.$" = "$.start_date"
+                  "end_date.$"   = "$.end_date"
+                  "max_pages.$"  = "$.max_pages"
+                }
+              }
+              Retry = [
+                {
+                  ErrorEquals     = ["Lambda.TooManyRequestsException", "Lambda.ServiceException"]
+                  IntervalSeconds = 10
+                  MaxAttempts     = 3
+                  BackoffRate     = 2.0
+                },
+                {
+                  ErrorEquals     = ["Sandbox.Timedout"]
+                  IntervalSeconds = 30
+                  MaxAttempts     = 2
+                  BackoffRate     = 1.0
+                }
+              ]
+              Next = "CheckBatchResult"
+            }
+            CheckBatchResult = {
+              Type = "Choice"
+              Choices = [
+                {
+                  Variable                 = "$.Payload.statusCode"
+                  NumericGreaterThanEquals = 400
+                  Next                     = "BatchFailed"
+                }
+              ]
+              Default = "BatchSucceeded"
+            }
+            BatchFailed = {
+              Type  = "Fail"
+              Error = "BackfillBatchFailed"
+              Cause = "fetch_and_classify_outlook_invoices returned an error status code for this batch - check the Task output's Payload.body, or CloudWatch Logs for /aws/lambda/fetch_and_classify_outlook_invoices, for details"
             }
             BatchSucceeded = {
               Type = "Pass"
