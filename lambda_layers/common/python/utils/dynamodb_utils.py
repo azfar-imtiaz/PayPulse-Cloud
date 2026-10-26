@@ -355,8 +355,8 @@ def write_ledger_entry(ledger_table, user_id: str, message_id: str, status: str,
         user_id: User ID
         message_id: Gmail message ID
         status: One of the ledger status enum values (e.g. 'pending', 'rejected_tier1',
-                 'parked_unclassifiable', 'parked_unsupported_category', 'duplicate_skipped',
-                 'extracted', 'extraction_failed')
+                 'rejected_prefilter', 'parked_unclassifiable', 'parked_unsupported_category',
+                 'duplicate_skipped', 'extracted', 'extraction_failed')
         **fields: Any additional ledger attributes to store, e.g. noul_result,
                    choice_category, choice_confidence, used_gemini_fallback, jev_token_usage,
                    order_id, retail_invoice_id, s3_path, error_detail

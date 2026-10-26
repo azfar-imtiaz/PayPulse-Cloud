@@ -16,7 +16,7 @@ logger = logging.getLogger()
 
 
 def gemini_category_fallback(gemini_api_key: str, subject: str, sender: str, snippet: str,
-                              category_descriptions: Dict[str, str]) -> Optional[str]:
+                              category_descriptions: Dict[str, str], has_attachment: bool = False) -> Optional[str]:
     """
     Ask Gemini to resolve a category when Jev's Tier 1+2 call couldn't confidently do so.
 
@@ -28,6 +28,8 @@ def gemini_category_fallback(gemini_api_key: str, subject: str, sender: str, sni
         category_descriptions: Mapping of category name -> short description/disambiguation
             hint (same CATEGORY_DESCRIPTIONS used for the Jev call, kept consistent so the
             fallback doesn't contradict Jev's own guidance).
+        has_attachment: Whether the email has an attachment - same signal passed to Jev, kept
+            consistent across both classification paths.
 
     Returns:
         One of the category keys, or None if Gemini also can't confidently categorize it
@@ -37,7 +39,8 @@ def gemini_category_fallback(gemini_api_key: str, subject: str, sender: str, sni
     prompt = (
         "You are classifying whether an email is a retail purchase invoice/receipt, and "
         "if so which category it belongs to.\n\n"
-        f"From: {sender}\nSubject: {subject}\nSnippet: {snippet}\n\n"
+        f"From: {sender}\nSubject: {subject}\nSnippet: {snippet}\n"
+        f"Has PDF/file attachment: {'yes' if has_attachment else 'no'}\n\n"
         f"Categories:\n{categories_block}\n\n"
         "Respond with ONLY a JSON object: "
         '{"category": "<one of the category names above, or null if this is not a retail '

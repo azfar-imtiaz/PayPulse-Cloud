@@ -358,20 +358,37 @@ def build_sweep_gmail_query(start_date: str, end_date: str, excluded_senders: Li
     return query
 
 
+def _payload_has_attachment(payload: Dict[str, Any]) -> bool:
+    """
+    Recursively check a Gmail message payload (as returned under format='full') for any
+    MIME part with a filename - Gmail nests multipart/mixed, so attachments can appear
+    several levels deep rather than as direct children of the top-level payload.
+    """
+    if payload.get('filename'):
+        return True
+    for part in payload.get('parts', []) or []:
+        if _payload_has_attachment(part):
+            return True
+    return False
+
+
 def get_email_metadata_light(service, message_id: str) -> Dict[str, Any]:
     """
-    Fetch lightweight email metadata (Subject, From headers + snippet) without pulling
-    the full raw MIME body. Used by the sweep/classification pipeline to keep per-message
-    cost low across a much larger candidate pool than vendor-scoped fetching - full body
-    fetch (get_email_content) is deferred until a message survives classification and
-    needs Tier 3 extraction.
+    Fetch lightweight email metadata (Subject, From headers + snippet + attachment
+    presence) without a separate full-content fetch. Used by the sweep/classification
+    pipeline to keep per-message cost low across a much larger candidate pool than
+    vendor-scoped fetching - full body fetch (get_email_content) is deferred until a
+    message survives classification and needs Tier 3 extraction.
+
+    Uses format='full' rather than 'metadata' so payload.parts is available to check for
+    attachments - 'metadata'/'minimal' both strip the MIME body tree and can't expose this.
 
     Args:
         service: Gmail API service object
         message_id: Gmail message ID
 
     Returns:
-        Dict with keys: message_id, subject, sender, snippet
+        Dict with keys: message_id, subject, sender, snippet, has_attachment
 
     Raises:
         GmailAPIError: If metadata retrieval fails
@@ -380,17 +397,18 @@ def get_email_metadata_light(service, message_id: str) -> Dict[str, Any]:
         message = service.users().messages().get(
             userId='me',
             id=message_id,
-            format='metadata',
-            metadataHeaders=['Subject', 'From']
+            format='full',
         ).execute()
 
-        headers = {h['name']: h['value'] for h in message.get('payload', {}).get('headers', [])}
+        payload = message.get('payload', {})
+        headers = {h['name']: h['value'] for h in payload.get('headers', [])}
 
         return {
             'message_id': message_id,
             'subject': headers.get('Subject', ''),
             'sender': headers.get('From', ''),
             'snippet': message.get('snippet', ''),
+            'has_attachment': _payload_has_attachment(payload),
         }
     except Exception as e:
         raise GmailAPIError(f"Failed to get email metadata: {str(e)}") from e

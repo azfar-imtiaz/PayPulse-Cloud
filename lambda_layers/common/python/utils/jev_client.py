@@ -18,19 +18,20 @@ from utils.exceptions import ClassificationError
 logger = logging.getLogger()
 
 
-def build_email_state(subject: str, sender: str, snippet: str) -> str:
+def build_email_state(subject: str, sender: str, snippet: str, has_attachment: bool = False) -> str:
     """
     Build the text input ("state") Jev classifies against, from lightweight email metadata.
     """
     return (
         f"From: {sender}\n"
         f"Subject: {subject}\n"
-        f"Snippet: {snippet}"
+        f"Snippet: {snippet}\n"
+        f"Has PDF/file attachment: {'yes' if has_attachment else 'no'}"
     )
 
 
 def classify_email(api_key: str, subject: str, sender: str, snippet: str,
-                    category_descriptions: Dict[str, str]) -> Dict[str, Any]:
+                    category_descriptions: Dict[str, str], has_attachment: bool = False) -> Dict[str, Any]:
     """
     Run a single combined Jev call: is this an invoice/transaction email (Noul), and if
     so which category does it belong to (Choice, with a "none of these" escape hatch).
@@ -44,6 +45,9 @@ def classify_email(api_key: str, subject: str, sender: str, snippet: str,
             hint, fed into Choice.criteria so Jev has real guidance instead of bare labels
             (see CATEGORY_DESCRIPTIONS in lambda_function.py for the actual hints, e.g.
             routing cloud/SaaS billing to 'subscriptions' rather than 'technology').
+        has_attachment: Whether the email has an attachment - many vendors send a near-empty
+            body with the real invoice as a PDF attachment, so this is a strong invoice-likelihood
+            signal even when subject/snippet alone look unclassifiable.
 
     Returns:
         {
@@ -58,7 +62,7 @@ def classify_email(api_key: str, subject: str, sender: str, snippet: str,
         message, and continue the sweep rather than aborting the whole run.
     """
     try:
-        state = build_email_state(subject, sender, snippet)
+        state = build_email_state(subject, sender, snippet, has_attachment)
         # Choice.criteria is a mapping of label -> optional description.
         choice_criteria = dict(category_descriptions)
         choice_criteria["none of these"] = "This is not a retail purchase invoice or receipt at all."

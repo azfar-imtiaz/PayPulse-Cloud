@@ -328,6 +328,12 @@ variable "rental_invoice_email" {
   default     = "kundservice@wallenstam.se"
 }
 
+variable "backfill_prefilter_excluded_domains" {
+  type        = string
+  description = "Comma-separated sender domains to skip before the Jev classification call, backfill mode only - cost control for large historical sweeps, never applied to the scheduled daily sweep. Only unambiguous non-transactional domains belong here (e.g. a personal bank, known notification-only platforms) - never a general noisy-vendor blocklist."
+  default     = "faysalbank.com,quora.com,notifications.freelancer.com"
+}
+
 variable "rental_invoice_email_subject" {
   type        = string
   description = "The subject of the email from which we receive rental invoices"

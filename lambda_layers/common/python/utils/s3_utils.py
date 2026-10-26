@@ -1,5 +1,6 @@
 import logging
 from email.message import Message
+from typing import Optional
 
 from botocore.exceptions import ClientError
 from utils.exceptions import S3Error
@@ -126,6 +127,20 @@ def download_and_upload_attachment(s3_client, s3_bucket_name: str, msg: Message,
                 invoices_found += 1
                 logging.info(f"{s3_key} uploaded to S3!")
     return invoices_found
+
+
+def extract_pdf_attachment_bytes(msg: Message) -> Optional[bytes]:
+    """
+    Pull the first PDF attachment's bytes out of a parsed email.message.Message (e.g. from
+    Gmail's format='raw' fetch). Used by the retail sweep pipeline for attachment-aware
+    classification/extraction - the walk logic mirrors download_and_upload_attachment's,
+    kept separate since that function is rental-specific (writes straight to S3 under the
+    rental path) while this one just returns bytes for the caller to handle.
+    """
+    for part in msg.walk():
+        if part.get_content_type() == "application/pdf":
+            return part.get_payload(decode=True)
+    return None
 
 
 def generate_retail_invoice_s3_key(user_id: str, vendor_id: str, sub_type: str,

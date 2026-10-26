@@ -46,6 +46,7 @@ resource "aws_lambda_function" "fetch_and_classify_retail_invoices" {
       # recognize and reject them every run. kundservice@wallenstam.se is the rental
       # invoice sender, already handled by fetch_latest_invoice.
       EXCLUDED_SENDER_EMAILS = var.rental_invoice_email
+      BACKFILL_PREFILTER_EXCLUDED_DOMAINS = var.backfill_prefilter_excluded_domains
     }
   }
 }

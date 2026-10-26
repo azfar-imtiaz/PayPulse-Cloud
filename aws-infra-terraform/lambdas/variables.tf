@@ -127,6 +127,11 @@ variable "rental_invoice_email_subject" {
   description = "The subject of the email from which we receive rental invoices"
 }
 
+variable "backfill_prefilter_excluded_domains" {
+  type        = string
+  description = "Comma-separated sender domains to skip before the Jev classification call, backfill mode only"
+}
+
 # S3 bucket names
 variable "invoices_bucket_name" {
   type        = string

@@ -33,6 +33,7 @@ resource "aws_lambda_function" "fetch_and_classify_outlook_invoices" {
       USERS_TABLE                              = var.users_table_name
       REGION                                   = var.aws_region
       OUTLOOK_OAUTH_CLIENT_ID                  = var.outlook_oauth_client_id
+      OUTLOOK_OAUTH_CLIENT_SECRET              = var.outlook_oauth_client_secret
       GEMINI_API_KEY                           = var.gemini_api_key_secret_string
       JEV_API_KEY                              = var.jev_api_key_secret_string
       RETAIL_EMAIL_CLASSIFICATION_LEDGER_TABLE = var.retail_email_classification_ledger_table_name
@@ -40,6 +41,7 @@ resource "aws_lambda_function" "fetch_and_classify_outlook_invoices" {
       CHOICE_CONFIDENCE_THRESHOLD              = "0.6"
       MAX_SWEEP_PAGES                          = "10"
       EXCLUDED_SENDER_EMAILS                   = var.rental_invoice_email
+      BACKFILL_PREFILTER_EXCLUDED_DOMAINS      = var.backfill_prefilter_excluded_domains
     }
   }
 }

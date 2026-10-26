@@ -1,3 +1,4 @@
+import base64
 import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
@@ -23,7 +24,8 @@ class OutlookClient:
         })
 
 
-def create_outlook_client(user_id: str, access_token: str, refresh_token: str, client_id: str, region: str, expires_at: str = None) -> OutlookClient:
+def create_outlook_client(user_id: str, access_token: str, refresh_token: str, client_id: str, region: str,
+                           client_secret: str = None, expires_at: str = None) -> OutlookClient:
     """
     Creates an OutlookClient for Microsoft Graph calls, refreshing the access token first
     if it's expired or expiring soon.
@@ -34,6 +36,9 @@ def create_outlook_client(user_id: str, access_token: str, refresh_token: str, c
         refresh_token: OAuth refresh token
         client_id: Microsoft Entra application (client) ID
         region: AWS region for Secrets Manager
+        client_secret: Microsoft Entra application client secret - required for the refresh
+            call now that the app registration is a confidential client (Microsoft rejects
+            a client_secret-less refresh with AADSTS70002).
         expires_at: Token expiration timestamp in ISO format
 
     Returns:
@@ -65,6 +70,7 @@ def create_outlook_client(user_id: str, access_token: str, refresh_token: str, c
 
             response = requests.post(TOKEN_URL, data={
                 'client_id': client_id,
+                'client_secret': client_secret,
                 'grant_type': 'refresh_token',
                 'refresh_token': refresh_token,
                 'scope': 'User.Read Mail.Read offline_access openid email'
@@ -187,7 +193,7 @@ def get_email_metadata_light(client: OutlookClient, message_id: str) -> Dict[str
         message_id: Graph message ID
 
     Returns:
-        Dict with keys: message_id, subject, sender, snippet
+        Dict with keys: message_id, subject, sender, snippet, has_attachment
 
     Raises:
         OutlookAPIError: If metadata retrieval fails
@@ -195,7 +201,7 @@ def get_email_metadata_light(client: OutlookClient, message_id: str) -> Dict[str
     try:
         response = client.session.get(
             f"{GRAPH_BASE_URL}/me/messages/{message_id}",
-            params={'$select': 'subject,from,bodyPreview'},
+            params={'$select': 'subject,from,bodyPreview,hasAttachments'},
             timeout=15
         )
 
@@ -211,11 +217,58 @@ def get_email_metadata_light(client: OutlookClient, message_id: str) -> Dict[str
             'subject': message.get('subject', ''),
             'sender': sender,
             'snippet': message.get('bodyPreview', ''),
+            'has_attachment': message.get('hasAttachments', False),
         }
     except OutlookAPIError:
         raise
     except Exception as e:
         raise OutlookAPIError(f"Failed to get Outlook email metadata: {str(e)}") from e
+
+
+def get_pdf_attachment_bytes(client: OutlookClient, message_id: str) -> Optional[bytes]:
+    """
+    Fetch the first PDF attachment's bytes for a Graph message, if any. Graph returns
+    attachment content inline as base64 contentBytes for normal-sized attachments - the
+    $value endpoint (needed for unusually large attachments) is intentionally not handled
+    here; oversized attachments are filtered out by the caller's size cap instead.
+
+    Args:
+        client: OutlookClient
+        message_id: Graph message ID
+
+    Returns:
+        Decoded PDF bytes, or None if there's no PDF attachment.
+
+    Raises:
+        OutlookAPIError: If the attachments list fails to load.
+    """
+    try:
+        # No $select here deliberately: contentBytes only exists on the fileAttachment
+        # subtype, not the polymorphic base "attachment" type the collection is typed as -
+        # Graph rejects $select-ing it at the collection level ("Could not find a property
+        # named 'contentBytes' on type microsoft.graph.attachment"). $select is exclusive
+        # (only listed properties come back), so there's no safe subset that includes it;
+        # fetching the full attachment objects is the only way to get contentBytes here.
+        response = client.session.get(
+            f"{GRAPH_BASE_URL}/me/messages/{message_id}/attachments",
+            timeout=15
+        )
+
+        if response.status_code != 200:
+            raise OutlookAPIError(f"Graph list attachments failed: HTTP {response.status_code} - {response.text}")
+
+        for attachment in response.json().get('value', []):
+            name = attachment.get('name', '') or ''
+            content_type = attachment.get('contentType', '') or ''
+            if content_type == 'application/pdf' or name.lower().endswith('.pdf'):
+                content_bytes_b64 = attachment.get('contentBytes')
+                if content_bytes_b64:
+                    return base64.b64decode(content_bytes_b64)
+        return None
+    except OutlookAPIError:
+        raise
+    except Exception as e:
+        raise OutlookAPIError(f"Failed to get Outlook PDF attachment: {str(e)}") from e
 
 
 def get_message_content(client: OutlookClient, message_id: str) -> Dict[str, Any]:
@@ -227,7 +280,8 @@ def get_message_content(client: OutlookClient, message_id: str) -> Dict[str, Any
         message_id: Graph message ID
 
     Returns:
-        Full message JSON from Graph (includes body.content, body.contentType, from, subject)
+        Full message JSON from Graph (includes body.content, body.contentType, from, subject,
+        receivedDateTime)
 
     Raises:
         OutlookAPIError: If message retrieval fails
@@ -235,7 +289,7 @@ def get_message_content(client: OutlookClient, message_id: str) -> Dict[str, Any
     try:
         response = client.session.get(
             f"{GRAPH_BASE_URL}/me/messages/{message_id}",
-            params={'$select': 'subject,from,body'},
+            params={'$select': 'subject,from,body,receivedDateTime'},
             timeout=15
         )
 

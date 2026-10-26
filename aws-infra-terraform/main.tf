@@ -79,6 +79,7 @@ module "lambdas" {
   invoices_table                             = var.invoices_table
   rental_invoice_email                       = var.rental_invoice_email
   rental_invoice_email_subject               = var.rental_invoice_email_subject
+  backfill_prefilter_excluded_domains        = var.backfill_prefilter_excluded_domains
   invoices_bucket_name                       = var.invoices_bucket_name
   lambda_outlook_store_tokens                = var.lambda_outlook_store_tokens
   lambda_fetch_and_classify_outlook_invoices = var.lambda_fetch_and_classify_outlook_invoices

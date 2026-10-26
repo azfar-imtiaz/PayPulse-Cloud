@@ -12,7 +12,7 @@ resource "aws_lambda_function" "parse_retail_invoice" {
   runtime       = var.python_runtime
   handler       = "main.lambda_handler"
 
-  timeout     = 60  # 1 minute for Gemini API calls
+  timeout     = 150 # up to 2.5 min for multimodal PDF Gemini calls (multi-page attachments)
   memory_size = 256 # Increased memory for AI processing
 
   environment {

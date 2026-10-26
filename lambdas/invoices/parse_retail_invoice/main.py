@@ -162,6 +162,19 @@ def lambda_handler(event, context):
         # Download HTML content from S3 and get fallback date
         html_content, fallback_date = download_html_from_s3(bucket, s3_key)
 
+        # Check for a sibling PDF attachment uploaded alongside the HTML (same base key,
+        # .pdf extension) - present when the source email had a PDF attachment.
+        pdf_bytes = None
+        if s3_key.endswith('.html'):
+            pdf_s3_key = s3_key[:-len('.html')] + '.pdf'
+            try:
+                pdf_obj = s3_client.get_object(Bucket=bucket, Key=pdf_s3_key)
+                pdf_bytes = pdf_obj['Body'].read()
+                logging.info(f"Found sibling PDF attachment: {pdf_s3_key} ({len(pdf_bytes)} bytes)")
+            except ClientError as e:
+                if e.response['Error']['Code'] != 'NoSuchKey':
+                    raise
+
         # Get appropriate parser for sub-type
         parser = get_parser_for_subtype(sub_type, GEMINI_API_KEY)
 
@@ -170,7 +183,7 @@ def lambda_handler(event, context):
 
         # Parse invoice using Gemini API
         logging.info(f"Parsing invoice using {parser.__class__.__name__}")
-        parsed_data = parser.parse_invoice(html_content, prompt)
+        parsed_data = parser.parse_invoice(html_content, prompt, pdf_bytes=pdf_bytes)
 
         if not parsed_data:
             logging.error("Failed to parse invoice - Gemini API returned no data")

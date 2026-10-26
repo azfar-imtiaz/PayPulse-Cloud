@@ -28,17 +28,21 @@ from utils.gmail_api_utils import (
     create_gmail_service, build_sweep_gmail_query, get_email_metadata_light,
     derive_vendor_slug_from_sender, get_email_content, extract_html_from_email
 )
-from utils.s3_utils import generate_retail_invoice_s3_key, upload_html_to_s3
+from utils.s3_utils import generate_retail_invoice_s3_key, upload_html_to_s3, extract_pdf_attachment_bytes
 from utils.exceptions import (
     GmailAPIError, OAuthValidationError, SecretsManagerError, RefreshTokenExpiredError,
     UserNotFoundError, DatabaseError, ClassificationError
 )
 
-from jev_client import classify_email
-from gemini_fallback import gemini_category_fallback
+from utils.jev_client import classify_email
+from utils.gemini_fallback import gemini_category_fallback
+from utils.backfill_prefilter import should_prefilter_candidate
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
+
+# Generous enough for real invoice PDFs, cheap guardrail against pathological attachments.
+MAX_PDF_ATTACHMENT_BYTES = 8 * 1024 * 1024
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -186,7 +190,8 @@ def list_sweep_candidates(gmail_service, start_date: str, end_date: str, max_pag
 
 def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str, message_id: str,
                              jev_api_key: str, gemini_api_key: str,
-                             noul_threshold: float, choice_confidence_threshold: float) -> str:
+                             noul_threshold: float, choice_confidence_threshold: float,
+                             is_backfill: bool = False, prefilter_excluded_domains: set = None) -> str:
     """
     Classify a single candidate email and, if confirmed, upload it to S3 to trigger
     extraction. Writes a ledger row for every outcome. Returns the final/interim status
@@ -200,9 +205,14 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
 
     metadata = get_email_metadata_light(gmail_service, message_id)
     subject, sender, snippet = metadata['subject'], metadata['sender'], metadata['snippet']
+    has_attachment = metadata['has_attachment']
+
+    if is_backfill and should_prefilter_candidate(sender, prefilter_excluded_domains or set()):
+        write_ledger_entry(ledger_table, user_id, message_id, status='rejected_prefilter')
+        return 'rejected_prefilter'
 
     try:
-        result = classify_email(jev_api_key, subject, sender, snippet, CATEGORY_DESCRIPTIONS)
+        result = classify_email(jev_api_key, subject, sender, snippet, CATEGORY_DESCRIPTIONS, has_attachment)
     except ClassificationError as e:
         logger.error(f"Classification failed for message {message_id}: {e}")
         write_ledger_entry(ledger_table, user_id, message_id, status='extraction_failed',
@@ -224,7 +234,7 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
 
     if choice_category is None or choice_confidence < choice_confidence_threshold:
         used_gemini_fallback = True
-        choice_category = gemini_category_fallback(gemini_api_key, subject, sender, snippet, CATEGORY_DESCRIPTIONS)
+        choice_category = gemini_category_fallback(gemini_api_key, subject, sender, snippet, CATEGORY_DESCRIPTIONS, has_attachment)
 
         if choice_category is None:
             write_ledger_entry(ledger_table, user_id, message_id, status='parked_unclassifiable',
@@ -250,6 +260,13 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
                             error_detail="No HTML content found in email")
         return 'no_html_content'
 
+    pdf_bytes = extract_pdf_attachment_bytes(email_content) if has_attachment else None
+    if pdf_bytes and len(pdf_bytes) > MAX_PDF_ATTACHMENT_BYTES:
+        logger.warning(f"PDF attachment for message {message_id} is {len(pdf_bytes)} bytes, "
+                        f"exceeds MAX_PDF_ATTACHMENT_BYTES={MAX_PDF_ATTACHMENT_BYTES} - skipping attachment, "
+                        f"falling back to HTML-only extraction")
+        pdf_bytes = None
+
     email_date_str = email_content.get('Date')
     email_date = parsedate_to_datetime(email_date_str) if email_date_str else datetime.now(timezone.utc)
 
@@ -261,6 +278,11 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
 
     upload_html_to_s3(s3_client, s3_bucket, s3_key, html_content,
                        metadata={'source': 'sweep', 'message_id': message_id})
+
+    if pdf_bytes:
+        pdf_s3_key = s3_key[:-len('.html')] + '.pdf'
+        s3_client.put_object(Bucket=s3_bucket, Key=pdf_s3_key, Body=pdf_bytes)
+        logger.info(f"Uploaded sibling PDF attachment to {pdf_s3_key} ({len(pdf_bytes)} bytes)")
 
     write_ledger_entry(ledger_table, user_id, message_id, status='pending',
                         noul_result=noul_result, choice_category=choice_category,
@@ -296,6 +318,11 @@ def process_user_sweep(user: dict, backfill_start_date: str = None, backfill_end
         expires_at=oauth_data.get('expires_at')
     )
 
+    is_backfill = bool(backfill_start_date)
+    prefilter_excluded_domains = {
+        d.strip().lower() for d in os.environ.get('BACKFILL_PREFILTER_EXCLUDED_DOMAINS', '').split(',') if d.strip()
+    }
+
     excluded_senders = [s.strip() for s in os.environ.get('EXCLUDED_SENDER_EMAILS', '').split(',') if s.strip()]
     message_ids, exhausted = list_sweep_candidates(gmail_service, start_date, end_date, max_pages,
                                                      excluded_senders=excluded_senders)
@@ -309,7 +336,8 @@ def process_user_sweep(user: dict, backfill_start_date: str = None, backfill_end
                 gmail_service=gmail_service, ledger_table=ledger_table,
                 s3_bucket=os.environ['S3_BUCKET'], user_id=user_id, message_id=message_id,
                 jev_api_key=os.environ['JEV_API_KEY'], gemini_api_key=os.environ['GEMINI_API_KEY'],
-                noul_threshold=noul_threshold, choice_confidence_threshold=choice_confidence_threshold
+                noul_threshold=noul_threshold, choice_confidence_threshold=choice_confidence_threshold,
+                is_backfill=is_backfill, prefilter_excluded_domains=prefilter_excluded_domains
             )
         except Exception as e:
             logger.error(f"Error processing message {message_id} for user {user_id}: {e}")

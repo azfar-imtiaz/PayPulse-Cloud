@@ -22,27 +22,53 @@ class RetailInvoiceBaseParser:
             "order_id": "string"
         }
 
-    def parse_invoice(self, email_content: str, prompt: str) -> Optional[Dict[str, Any]]:
+    def parse_invoice(self, email_content: str, prompt: str,
+                       pdf_bytes: Optional[bytes] = None) -> Optional[Dict[str, Any]]:
         """
         Parse invoice content using Gemini Flash API.
 
         Args:
             email_content: HTML content of the email invoice
             prompt: Extraction prompt for the specific parser
+            pdf_bytes: Bytes of a PDF attachment found alongside the email, if any. When
+                present, it's passed to Gemini as a native multimodal Part alongside the
+                prompt in one combined call, with explicit precedence instructions - many
+                vendors send a near-empty body with the real invoice as the PDF, so the PDF
+                is treated as authoritative over the email body.
 
         Returns:
             Parsed invoice data as dictionary or None if parsing fails
         """
         try:
             logging.info("Sending request to Gemini Flash API...")
+            if pdf_bytes:
+                precedence_note = (
+                    "The attached PDF is the authoritative source for this invoice's data - if the "
+                    "email body text below conflicts with the PDF in any way (amounts, dates, vendor, "
+                    "order id), trust the PDF. The email body may be empty, a generic notification, or "
+                    "even misleading; the PDF is the real receipt/invoice. Use the PDF to extract across "
+                    "ALL of its pages.\n\n"
+                )
+                contents = [
+                    types.Part.from_bytes(data=pdf_bytes, mime_type='application/pdf'),
+                    precedence_note + prompt,
+                ]
+            else:
+                contents = prompt
+
             response = self.client.models.generate_content(
                 model='gemini-2.5-flash-lite',
-                contents=prompt,
+                contents=contents,
                 config=types.GenerateContentConfig(
                     temperature=0.1,
                     response_mime_type="application/json"
                 )
             )
+
+            usage = getattr(response, 'usage_metadata', None)
+            if usage:
+                logging.info(f"Gemini token usage - prompt: {usage.prompt_token_count}, "
+                             f"candidates: {usage.candidates_token_count}, total: {usage.total_token_count}")
 
             result_text = response.text.strip()
             invoice_data = json.loads(result_text, parse_float=Decimal)

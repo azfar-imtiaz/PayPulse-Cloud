@@ -27,7 +27,8 @@ from utils.dynamodb_utils import (
 )
 from utils.outlook_api_utils import (
     create_outlook_client, build_sweep_outlook_query, list_messages, get_email_metadata_light,
-    derive_vendor_slug_from_sender, get_message_content, extract_html_from_outlook_message
+    derive_vendor_slug_from_sender, get_message_content, extract_html_from_outlook_message,
+    get_pdf_attachment_bytes
 )
 from utils.s3_utils import generate_retail_invoice_s3_key, upload_html_to_s3
 from utils.exceptions import (
@@ -35,11 +36,15 @@ from utils.exceptions import (
     UserNotFoundError, DatabaseError, ClassificationError
 )
 
-from jev_client import classify_email
-from gemini_fallback import gemini_category_fallback
+from utils.jev_client import classify_email
+from utils.gemini_fallback import gemini_category_fallback
+from utils.backfill_prefilter import should_prefilter_candidate
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
+
+# Generous enough for real invoice PDFs, cheap guardrail against pathological attachments.
+MAX_PDF_ATTACHMENT_BYTES = 8 * 1024 * 1024
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -176,7 +181,8 @@ def list_sweep_candidates(outlook_client, start_date: str, end_date: str, max_pa
 
 def process_candidate_email(outlook_client, ledger_table, s3_bucket, user_id: str, message_id: str,
                              jev_api_key: str, gemini_api_key: str,
-                             noul_threshold: float, choice_confidence_threshold: float) -> str:
+                             noul_threshold: float, choice_confidence_threshold: float,
+                             is_backfill: bool = False, prefilter_excluded_domains: set = None) -> str:
     """
     Classify a single candidate email and, if confirmed, upload it to S3 to trigger
     extraction. Writes a ledger row for every outcome. Returns the final/interim status
@@ -190,9 +196,14 @@ def process_candidate_email(outlook_client, ledger_table, s3_bucket, user_id: st
 
     metadata = get_email_metadata_light(outlook_client, message_id)
     subject, sender, snippet = metadata['subject'], metadata['sender'], metadata['snippet']
+    has_attachment = metadata['has_attachment']
+
+    if is_backfill and should_prefilter_candidate(sender, prefilter_excluded_domains or set()):
+        write_ledger_entry(ledger_table, user_id, message_id, status='rejected_prefilter', provider='outlook')
+        return 'rejected_prefilter'
 
     try:
-        result = classify_email(jev_api_key, subject, sender, snippet, CATEGORY_DESCRIPTIONS)
+        result = classify_email(jev_api_key, subject, sender, snippet, CATEGORY_DESCRIPTIONS, has_attachment)
     except ClassificationError as e:
         logger.error(f"Classification failed for message {message_id}: {e}")
         write_ledger_entry(ledger_table, user_id, message_id, status='extraction_failed',
@@ -214,7 +225,7 @@ def process_candidate_email(outlook_client, ledger_table, s3_bucket, user_id: st
 
     if choice_category is None or choice_confidence < choice_confidence_threshold:
         used_gemini_fallback = True
-        choice_category = gemini_category_fallback(gemini_api_key, subject, sender, snippet, CATEGORY_DESCRIPTIONS)
+        choice_category = gemini_category_fallback(gemini_api_key, subject, sender, snippet, CATEGORY_DESCRIPTIONS, has_attachment)
 
         if choice_category is None:
             write_ledger_entry(ledger_table, user_id, message_id, status='parked_unclassifiable',
@@ -240,6 +251,13 @@ def process_candidate_email(outlook_client, ledger_table, s3_bucket, user_id: st
                             error_detail="No HTML content found in message", provider='outlook')
         return 'no_html_content'
 
+    pdf_bytes = get_pdf_attachment_bytes(outlook_client, message_id) if has_attachment else None
+    if pdf_bytes and len(pdf_bytes) > MAX_PDF_ATTACHMENT_BYTES:
+        logger.warning(f"PDF attachment for message {message_id} is {len(pdf_bytes)} bytes, "
+                        f"exceeds MAX_PDF_ATTACHMENT_BYTES={MAX_PDF_ATTACHMENT_BYTES} - skipping attachment, "
+                        f"falling back to HTML-only extraction")
+        pdf_bytes = None
+
     received_date_str = message_json.get('receivedDateTime')
     if received_date_str:
         email_date = datetime.fromisoformat(received_date_str.replace('Z', '+00:00'))
@@ -254,6 +272,11 @@ def process_candidate_email(outlook_client, ledger_table, s3_bucket, user_id: st
 
     upload_html_to_s3(s3_client, s3_bucket, s3_key, html_content,
                        metadata={'source': 'sweep', 'message_id': message_id, 'provider': 'outlook'})
+
+    if pdf_bytes:
+        pdf_s3_key = s3_key[:-len('.html')] + '.pdf'
+        s3_client.put_object(Bucket=s3_bucket, Key=pdf_s3_key, Body=pdf_bytes)
+        logger.info(f"Uploaded sibling PDF attachment to {pdf_s3_key} ({len(pdf_bytes)} bytes)")
 
     write_ledger_entry(ledger_table, user_id, message_id, status='pending',
                         noul_result=noul_result, choice_category=choice_category,
@@ -284,9 +307,15 @@ def process_user_sweep(user: dict, backfill_start_date: str = None, backfill_end
         access_token=oauth_data['access_token'],
         refresh_token=oauth_data['refresh_token'],
         client_id=os.environ.get('OUTLOOK_OAUTH_CLIENT_ID', ''),
+        client_secret=os.environ.get('OUTLOOK_OAUTH_CLIENT_SECRET', ''),
         region=os.environ['REGION'],
         expires_at=oauth_data.get('expires_at')
     )
+
+    is_backfill = bool(backfill_start_date)
+    prefilter_excluded_domains = {
+        d.strip().lower() for d in os.environ.get('BACKFILL_PREFILTER_EXCLUDED_DOMAINS', '').split(',') if d.strip()
+    }
 
     excluded_senders = [s.strip() for s in os.environ.get('EXCLUDED_SENDER_EMAILS', '').split(',') if s.strip()]
     message_ids, exhausted = list_sweep_candidates(outlook_client, start_date, end_date, max_pages,
@@ -301,7 +330,8 @@ def process_user_sweep(user: dict, backfill_start_date: str = None, backfill_end
                 outlook_client=outlook_client, ledger_table=ledger_table,
                 s3_bucket=os.environ['S3_BUCKET'], user_id=user_id, message_id=message_id,
                 jev_api_key=os.environ['JEV_API_KEY'], gemini_api_key=os.environ['GEMINI_API_KEY'],
-                noul_threshold=noul_threshold, choice_confidence_threshold=choice_confidence_threshold
+                noul_threshold=noul_threshold, choice_confidence_threshold=choice_confidence_threshold,
+                is_backfill=is_backfill, prefilter_excluded_domains=prefilter_excluded_domains
             )
         except Exception as e:
             logger.error(f"Error processing message {message_id} for user {user_id}: {e}")

@@ -25,6 +25,14 @@ def lambda_handler(event, context=None):
             logging.info("Downloading file...")
             bucket = record['s3']['bucket']['name']
             key = record['s3']['object']['key']
+
+            # The bucket's .pdf trigger is scoped by filter_prefix="invoices/" only (not
+            # per-folder), so retail's new sibling-PDF uploads under invoices/{user_id}/retail/
+            # also land here. This Lambda is rental-only - skip anything not under /rental/.
+            if '/rental/' not in key:
+                logging.info(f"Skipping non-rental PDF upload: {key}")
+                continue
+
             # Extract user_id from new path structure: invoices/{user_id}/rental/{filename} or invoices/{user_id}/retail/{category}/{filename}
             path_parts = key.split('/')
             if len(path_parts) >= 3 and path_parts[0] == 'invoices':
