@@ -31,6 +31,44 @@ def postprocess_rental_invoices(invoices: List[Dict]) -> Dict:
     return invoices_grouped_by_year
 
 
+RENTAL_INVOICE_AMOUNT_FIELD = 'Total Amount'
+RENTAL_INVOICE_CURRENCY = 'SEK'
+
+
+def build_rental_invoice_card(invoice: Dict) -> Dict:
+    """
+    Build the unified card shape for a rental invoice, as used by the home screen summary and
+    recent-invoices endpoints.
+    """
+    year = invoice.get('due_date_year', '')
+    month = str(invoice.get('due_date_month', '')).zfill(2)
+    return {
+        'invoice_type': 'rental',
+        'invoice_id': invoice.get('InvoiceID'),
+        'sub_type': None,
+        'vendor_name': None,
+        'total_amount': invoice.get(RENTAL_INVOICE_AMOUNT_FIELD),
+        'currency': RENTAL_INVOICE_CURRENCY,
+        'invoice_date': f"{year}-{month}-01" if year and month else None
+    }
+
+
+def build_retail_invoice_card(invoice: Dict) -> Dict:
+    """
+    Build the unified card shape for a retail invoice, as used by the home screen summary and
+    recent-invoices endpoints.
+    """
+    return {
+        'invoice_type': 'retail',
+        'invoice_id': invoice.get('InvoiceID'),
+        'sub_type': invoice.get('sub_type'),
+        'vendor_name': invoice.get('vendor_name'),
+        'total_amount': invoice.get('total_amount'),
+        'currency': invoice.get('currency'),
+        'invoice_date': invoice.get('invoice_date')
+    }
+
+
 def postprocess_retail_invoices(invoices: List[Dict], group_by: str = 'sub_type') -> Dict:
     """
     This helper function groups retail invoices and sorts them by invoice_date in descending order

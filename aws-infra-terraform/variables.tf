@@ -244,6 +244,18 @@ variable "lambda_get_rental_invoice" {
   default     = "get_rental_invoice"
 }
 
+variable "lambda_get_invoice_summary" {
+  type        = string
+  description = "The lambda function returns the current-month rental + retail spend summary for the home screen"
+  default     = "get_invoice_summary"
+}
+
+variable "lambda_get_recent_invoices" {
+  type        = string
+  description = "The lambda function returns the N most recent invoices (rental + retail combined) for the home screen"
+  default     = "get_recent_invoices"
+}
+
 variable "lambda_get_user_profile" {
   type        = string
   description = "The lambda function retrieves the profile information for the authenticated user"

@@ -68,6 +68,8 @@ module "lambdas" {
   lambda_delete_user                         = var.lambda_delete_user
   lambda_get_invoices                        = var.lambda_get_invoices
   lambda_get_rental_invoice                  = var.lambda_get_rental_invoice
+  lambda_get_invoice_summary                 = var.lambda_get_invoice_summary
+  lambda_get_recent_invoices                 = var.lambda_get_recent_invoices
   lambda_get_user_profile                    = var.lambda_get_user_profile
   lambda_gmail_store_tokens                  = var.lambda_gmail_store_tokens
   lambda_parse_retail_invoice                = var.lambda_parse_retail_invoice
@@ -105,6 +107,8 @@ module "lambdas" {
   signup_lambda_role_arn                              = module.iam.signup_lambda_role_arn
   delete_user_lambda_role_arn                         = module.iam.delete_user_lambda_role_arn
   get_invoices_lambda_role_arn                        = module.iam.get_invoices_lambda_role_arn
+  get_invoice_summary_lambda_role_arn                 = module.iam.get_invoice_summary_lambda_role_arn
+  get_recent_invoices_lambda_role_arn                 = module.iam.get_recent_invoices_lambda_role_arn
   get_rental_invoice_lambda_role_arn                  = module.iam.get_rental_invoice_lambda_role_arn
   get_user_profile_lambda_role_arn                    = module.iam.get_user_profile_lambda_role_arn
   gmail_store_tokens_lambda_role_arn                  = module.iam.gmail_store_tokens_lambda_role_arn

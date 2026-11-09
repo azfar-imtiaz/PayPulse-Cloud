@@ -30,6 +30,16 @@ output "get_invoices_lambda_role_arn" {
   value       = aws_iam_role.get_invoices_lambda_role.arn
 }
 
+output "get_invoice_summary_lambda_role_arn" {
+  description = "ARN of the get invoice summary lambda role"
+  value       = aws_iam_role.get_invoice_summary_lambda_role.arn
+}
+
+output "get_recent_invoices_lambda_role_arn" {
+  description = "ARN of the get recent invoices lambda role"
+  value       = aws_iam_role.get_recent_invoices_lambda_role.arn
+}
+
 output "get_rental_invoice_lambda_role_arn" {
   description = "ARN of the get rental invoice lambda role"
   value       = aws_iam_role.get_rental_invoice_lambda_role.arn

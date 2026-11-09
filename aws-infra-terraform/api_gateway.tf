@@ -215,6 +215,60 @@ resource "aws_lambda_permission" "get_invoices_api_permission" {
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
 
+# --- Endpoint for get_invoice_summary (home screen: current-month rental + retail spend) ---
+
+# Connect APIGateway to get_invoice_summary lambda function
+resource "aws_apigatewayv2_integration" "get_invoice_summary_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.lambdas.get_invoice_summary_invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Route: GET /v1/invoices/summary
+resource "aws_apigatewayv2_route" "get_invoice_summary_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "GET /${var.api_version}/invoices/summary"
+  target    = "integrations/${aws_apigatewayv2_integration.get_invoice_summary_integration.id}"
+}
+
+# Allow APIGateway to invoke the get_invoice_summary lambda function
+resource "aws_lambda_permission" "get_invoice_summary_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambdas.get_invoice_summary_function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}
+
+# --- Endpoint for get_recent_invoices (home screen: N most recent rental + retail invoices) ---
+
+# Connect APIGateway to get_recent_invoices lambda function
+resource "aws_apigatewayv2_integration" "get_recent_invoices_integration" {
+  api_id                 = aws_apigatewayv2_api.paypulse_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = module.lambdas.get_recent_invoices_invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
+# Route: GET /v1/invoices/recent
+resource "aws_apigatewayv2_route" "get_recent_invoices_route" {
+  api_id    = aws_apigatewayv2_api.paypulse_api.id
+  route_key = "GET /${var.api_version}/invoices/recent"
+  target    = "integrations/${aws_apigatewayv2_integration.get_recent_invoices_integration.id}"
+}
+
+# Allow APIGateway to invoke the get_recent_invoices lambda function
+resource "aws_lambda_permission" "get_recent_invoices_api_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambdas.get_recent_invoices_function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
+}
+
 # --- Endpoint for get_rental_invoice ---
 
 # Connect APIGateway to get_rental_invoice lambda function

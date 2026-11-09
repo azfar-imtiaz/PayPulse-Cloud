@@ -95,6 +95,16 @@ variable "lambda_get_rental_invoice" {
   description = "The lambda function retrieves all parsed details for a given invoice ID from the RentalInvoices table"
 }
 
+variable "lambda_get_invoice_summary" {
+  type        = string
+  description = "The lambda function returns the current-month rental + retail spend summary for the home screen"
+}
+
+variable "lambda_get_recent_invoices" {
+  type        = string
+  description = "The lambda function returns the N most recent invoices (rental + retail combined) for the home screen"
+}
+
 variable "lambda_get_user_profile" {
   type        = string
   description = "The lambda function retrieves the profile information for the authenticated user"
@@ -224,6 +234,16 @@ variable "delete_user_lambda_role_arn" {
 variable "get_invoices_lambda_role_arn" {
   type        = string
   description = "The ARN of the get invoices lambda role"
+}
+
+variable "get_invoice_summary_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the get invoice summary lambda role"
+}
+
+variable "get_recent_invoices_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the get recent invoices lambda role"
 }
 
 variable "get_rental_invoice_lambda_role_arn" {

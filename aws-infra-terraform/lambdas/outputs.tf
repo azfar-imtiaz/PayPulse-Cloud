@@ -84,6 +84,26 @@ output "get_invoices_invoke_arn" {
   value       = aws_lambda_function.get_invoices.invoke_arn
 }
 
+output "get_invoice_summary_function_name" {
+  description = "Name of the get invoice summary lambda function"
+  value       = aws_lambda_function.get_invoice_summary.function_name
+}
+
+output "get_invoice_summary_invoke_arn" {
+  description = "Invoke ARN of the get invoice summary lambda function"
+  value       = aws_lambda_function.get_invoice_summary.invoke_arn
+}
+
+output "get_recent_invoices_function_name" {
+  description = "Name of the get recent invoices lambda function"
+  value       = aws_lambda_function.get_recent_invoices.function_name
+}
+
+output "get_recent_invoices_invoke_arn" {
+  description = "Invoke ARN of the get recent invoices lambda function"
+  value       = aws_lambda_function.get_recent_invoices.invoke_arn
+}
+
 output "get_rental_invoice_function_name" {
   description = "Name of the get rental invoice lambda function"
   value       = aws_lambda_function.get_rental_invoice.function_name

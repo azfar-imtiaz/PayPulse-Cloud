@@ -2,7 +2,7 @@ import boto3
 import logging
 from uuid import uuid4
 from decimal import Decimal
-from typing import Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 from datetime import datetime, timezone
 from botocore.exceptions import ClientError
@@ -649,6 +649,93 @@ def get_retail_invoice_counts(dynamodb_table, user_id: str, exclude_sources=None
 
     except Exception as e:
         raise DatabaseError(f"Error getting retail invoice counts for '{user_id}'") from e
+
+
+def get_rental_invoice_for_month(table, user_id: str, year: int, month: int) -> Optional[Dict]:
+    """
+    Get the single rental invoice for a given user/year/month, if one exists.
+
+    No per-user date GSI exists on RentalInvoices (the existing
+    due_date_year-due_date_month-index is hashed on due_date_year alone, not per-user), so this
+    queries by UserID (the primary key) and filters in-memory - acceptable since a user has at
+    most ~1 rental invoice per month.
+
+    Args:
+        table: DynamoDB table resource for RentalInvoices
+        user_id: User ID
+        year: Due year to match (due_date_year is stored as a string)
+        month: Due month to match (due_date_month is stored as a string)
+
+    Returns:
+        The matching invoice item, or None if not found
+    """
+    try:
+        response = table.query(
+            KeyConditionExpression=Key('UserID').eq(user_id)
+        )
+        for invoice in response.get('Items', []):
+            if invoice.get('due_date_year') == str(year) and invoice.get('due_date_month') == str(month):
+                return invoice
+        return None
+    except Exception as e:
+        raise DatabaseError(f"Error getting rental invoice for '{user_id}' for {year}-{month:02d}") from e
+
+
+def get_retail_invoices_for_month(table, user_id: str, start_date: str, end_date: str,
+                                   exclude_sources=None) -> List[Dict]:
+    """
+    Get all retail invoices for a given user whose invoice_date falls within [start_date, end_date]
+    (inclusive), using the invoice_date-index GSI. Excludes duplicates/invalid rows via the same
+    filter used by the other retail list endpoints.
+
+    Args:
+        table: DynamoDB table resource for RetailInvoices
+        user_id: User ID
+        start_date: Inclusive lower bound, "YYYY-MM-DD"
+        end_date: Inclusive upper bound, "YYYY-MM-DD"
+        exclude_sources: Optional list of discovery_source values to exclude
+
+    Returns:
+        List of matching invoice items
+    """
+    try:
+        response = table.query(
+            IndexName='invoice_date-index',
+            KeyConditionExpression=Key('UserID').eq(user_id) & Key('invoice_date').between(start_date, end_date),
+            FilterExpression=_build_retail_list_filter(exclude_sources)
+        )
+        return response.get('Items', [])
+    except Exception as e:
+        raise DatabaseError(f"Error getting retail invoices for '{user_id}' between {start_date} and {end_date}") from e
+
+
+def get_recent_retail_invoices(table, user_id: str, limit: int = 20, exclude_sources=None) -> List[Dict]:
+    """
+    Get the most recent retail invoices for a given user, newest first, using the
+    invoice_date-index GSI with ScanIndexForward=False so DynamoDB returns them pre-sorted.
+
+    Args:
+        table: DynamoDB table resource for RetailInvoices
+        user_id: User ID
+        limit: Max number of items to fetch (DynamoDB applies this before the filter expression,
+            so a few duplicate/invalid rows within the window could reduce the returned count
+            below `limit` - acceptable here since callers merge with rental invoices and re-slice)
+        exclude_sources: Optional list of discovery_source values to exclude
+
+    Returns:
+        List of matching invoice items, newest invoice_date first
+    """
+    try:
+        response = table.query(
+            IndexName='invoice_date-index',
+            KeyConditionExpression=Key('UserID').eq(user_id),
+            FilterExpression=_build_retail_list_filter(exclude_sources),
+            ScanIndexForward=False,
+            Limit=limit
+        )
+        return response.get('Items', [])
+    except Exception as e:
+        raise DatabaseError(f"Error getting recent retail invoices for '{user_id}'") from e
 
 
 def get_retail_invoice_for_user(table, user_id: str, invoice_id: str) -> Dict:
