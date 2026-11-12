@@ -59,7 +59,7 @@ module "lambdas" {
   aws_region                                 = var.aws_region
   python_runtime                             = var.python_runtime
   lambda_fetch_rental_invoices               = var.lambda_fetch_rental_invoices
-  lambda_fetch_retail_invoices               = var.lambda_fetch_retail_invoices
+  lambda_fetch_latest_retail_invoices        = var.lambda_fetch_latest_retail_invoices
   lambda_fetch_latest_rental_invoice         = var.lambda_fetch_latest_rental_invoice
   lambda_parse_rental_invoice                = var.lambda_parse_rental_invoice
   lambda_send_rental_invoice_notification    = var.lambda_send_rental_invoice_notification
@@ -99,7 +99,6 @@ module "lambdas" {
   google_oauth_client_id           = var.google_oauth_client_id
   sns_topic_arn                    = aws_sns_topic.new_invoice_notification.arn
   daily_lambda_trigger_arn         = aws_cloudwatch_event_rule.daily_lambda_trigger.arn
-  weekly_retail_trigger_arn        = aws_cloudwatch_event_rule.weekly_retail_trigger.arn
   retail_sweep_trigger_arn         = aws_cloudwatch_event_rule.retail_sweep_trigger.arn
 
   # Pass IAM role ARNs from IAM module
@@ -112,7 +111,7 @@ module "lambdas" {
   get_rental_invoice_lambda_role_arn                  = module.iam.get_rental_invoice_lambda_role_arn
   get_user_profile_lambda_role_arn                    = module.iam.get_user_profile_lambda_role_arn
   gmail_store_tokens_lambda_role_arn                  = module.iam.gmail_store_tokens_lambda_role_arn
-  fetch_retail_invoices_lambda_role_arn               = module.iam.fetch_retail_invoices_lambda_role_arn
+  fetch_latest_retail_invoices_lambda_role_arn        = module.iam.fetch_latest_retail_invoices_lambda_role_arn
   fetch_and_classify_retail_invoices_lambda_role_arn  = module.iam.fetch_and_classify_retail_invoices_lambda_role_arn
   parse_retail_invoice_lambda_role_arn                = module.iam.parse_retail_invoice_lambda_role_arn
   delete_retail_invoice_lambda_role_arn               = module.iam.delete_retail_invoice_lambda_role_arn

@@ -55,9 +55,9 @@ output "gmail_store_tokens_lambda_role_arn" {
   value       = aws_iam_role.gmail_store_tokens_lambda_role.arn
 }
 
-output "fetch_retail_invoices_lambda_role_arn" {
-  description = "ARN of the fetch retail invoices lambda role"
-  value       = aws_iam_role.fetch_retail_invoices_lambda_role.arn
+output "fetch_latest_retail_invoices_lambda_role_arn" {
+  description = "ARN of the on-demand fetch latest retail invoices lambda role"
+  value       = aws_iam_role.fetch_latest_retail_invoices_lambda_role.arn
 }
 
 output "fetch_and_classify_retail_invoices_lambda_role_arn" {

@@ -1,7 +1,10 @@
-# IAM Role for fetch_retail_invoices Lambda function
+# IAM Role for fetch_latest_retail_invoices Lambda function (on-demand, single-category
+# retail invoice fetch). Same permission shape as fetch_and_classify_retail_invoices since
+# it reuses the same utils.retail_sweep pipeline - no access to the 8 detail invoice tables
+# or the Gemini-extraction write path, that stays in parse_retail_invoice's role.
 
-resource "aws_iam_role" "fetch_retail_invoices_lambda_role" {
-  name = "Fetch-Retail-Invoices_Lambda_Role"
+resource "aws_iam_role" "fetch_latest_retail_invoices_lambda_role" {
+  name = "Fetch-Latest-Retail-Invoices_Lambda_Role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -17,8 +20,8 @@ resource "aws_iam_role" "fetch_retail_invoices_lambda_role" {
   })
 }
 
-resource "aws_iam_policy" "fetch_retail_invoices_lambda_policy" {
-  name = "Fetch-Retail-Invoices_Lambda_Policy"
+resource "aws_iam_policy" "fetch_latest_retail_invoices_lambda_policy" {
+  name = "Fetch-Latest-Retail-Invoices_Lambda_Policy"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -33,31 +36,28 @@ resource "aws_iam_policy" "fetch_retail_invoices_lambda_policy" {
         ],
         Resource = "arn:aws:logs:*:*:*"
       },
-      # DynamoDB - Read Users table
+      # DynamoDB - Read Users table (fetch_user_by_id)
       {
         Effect = "Allow",
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:Query"
         ],
         Resource = var.users_table_arn
       },
-      # DynamoDB - Scan VendorConfig table
+      # DynamoDB - RetailEmailClassificationLedger read/write
       {
         Effect = "Allow",
         Action = [
-          "dynamodb:Scan"
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
         ],
-        Resource = var.vendor_config_table_arn
-      },
-      # DynamoDB - Update Users table (last_retail_invoice_fetch field)
-      {
-        Effect = "Allow",
-        Action = [
-          "dynamodb:UpdateItem"
-        ],
-        Resource = var.users_table_arn
+        Resource = [
+          var.retail_email_classification_ledger_table_arn,
+          "${var.retail_email_classification_ledger_table_arn}/index/status-classified_at-index"
+        ]
       },
       # S3 - ListBucket permission (required for HeadObject to return 404 instead of 403)
       {
@@ -67,7 +67,7 @@ resource "aws_iam_policy" "fetch_retail_invoices_lambda_policy" {
         ],
         Resource = "arn:aws:s3:::${var.invoices_bucket_name}"
       },
-      # S3 - Upload retail invoice HTML files
+      # S3 - Upload confirmed candidate HTML files (re-triggers parse_retail_invoice)
       {
         Effect = "Allow",
         Action = [
@@ -101,12 +101,23 @@ resource "aws_iam_policy" "fetch_retail_invoices_lambda_policy" {
           "secretsmanager:DeleteSecret"
         ],
         Resource = "arn:aws:secretsmanager:${var.aws_region}:*:secret:gmail/user/*"
+      },
+      # Secrets Manager - Jev and Gemini API keys
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ],
+        Resource = [
+          "arn:aws:secretsmanager:${var.aws_region}:*:secret:jev/api-key*",
+          "arn:aws:secretsmanager:${var.aws_region}:*:secret:gemini-api-key*"
+        ]
       }
     ]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "fetch_retail_invoices_lambda_policy_attachment" {
-  role       = aws_iam_role.fetch_retail_invoices_lambda_role.name
-  policy_arn = aws_iam_policy.fetch_retail_invoices_lambda_policy.arn
+resource "aws_iam_role_policy_attachment" "fetch_latest_retail_invoices_lambda_policy_attachment" {
+  role       = aws_iam_role.fetch_latest_retail_invoices_lambda_role.name
+  policy_arn = aws_iam_policy.fetch_latest_retail_invoices_lambda_policy.arn
 }

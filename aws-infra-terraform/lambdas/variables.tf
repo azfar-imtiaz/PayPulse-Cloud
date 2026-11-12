@@ -14,14 +14,14 @@ variable "lambda_fetch_rental_invoices" {
   description = "The lambda function for fetching all invoices"
 }
 
-variable "lambda_fetch_retail_invoices" {
-  type        = string
-  description = "The lambda function for fetching retail invoices from Gmail"
-}
-
 variable "lambda_fetch_and_classify_retail_invoices" {
   type        = string
   description = "The lambda function for the broad Gmail sweep + Jev classification retail invoice discovery pipeline"
+}
+
+variable "lambda_fetch_latest_retail_invoices" {
+  type        = string
+  description = "The lambda function for the on-demand, single-category retail invoice fetch"
 }
 
 variable "lambda_outlook_store_tokens" {
@@ -205,11 +205,6 @@ variable "daily_lambda_trigger_arn" {
   description = "The ARN of the daily lambda trigger event rule"
 }
 
-variable "weekly_retail_trigger_arn" {
-  type        = string
-  description = "The ARN of the weekly retail invoice trigger event rule"
-}
-
 variable "retail_sweep_trigger_arn" {
   type        = string
   description = "The ARN of the retail invoice sweep trigger event rule"
@@ -261,14 +256,14 @@ variable "gmail_store_tokens_lambda_role_arn" {
   description = "The ARN of the gmail store tokens lambda role"
 }
 
-variable "fetch_retail_invoices_lambda_role_arn" {
-  type        = string
-  description = "The ARN of the fetch retail invoices lambda role"
-}
-
 variable "fetch_and_classify_retail_invoices_lambda_role_arn" {
   type        = string
   description = "The ARN of the fetch and classify retail invoices (sweep) lambda role"
+}
+
+variable "fetch_latest_retail_invoices_lambda_role_arn" {
+  type        = string
+  description = "The ARN of the on-demand fetch latest retail invoices lambda role"
 }
 
 variable "outlook_store_tokens_lambda_role_arn" {

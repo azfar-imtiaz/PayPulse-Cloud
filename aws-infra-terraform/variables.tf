@@ -152,24 +152,6 @@ variable "daily_lambda_trigger_schedule" {
   default     = "cron(30 8 ? * MON-FRI *)" # This is 8:30 AM UTC
 }
 
-variable "weekly_retail_trigger" {
-  type        = string
-  description = "The name of the weekly retail invoice trigger"
-  default     = "WeeklyRetailInvoiceTrigger"
-}
-
-variable "weekly_retail_trigger_schedule" {
-  type        = string
-  description = "The schedule expression for weekly retail invoice trigger"
-  default     = "cron(0 18 ? * SUN *)" # This is 6:00 PM UTC every Sunday
-}
-
-variable "weekly_retail_trigger_enabled" {
-  type        = bool
-  description = "Whether the old vendor-driven retail invoice fetch cron is active. Paused in favor of the new Jev-classification sweep pipeline (fetch_and_classify_retail_invoices)."
-  default     = false
-}
-
 variable "retail_sweep_trigger" {
   type        = string
   description = "The name of the retail invoice sweep (Jev classification pipeline) trigger"
@@ -268,10 +250,10 @@ variable "lambda_gmail_store_tokens" {
   default     = "gmail_store_tokens"
 }
 
-variable "lambda_fetch_retail_invoices" {
+variable "lambda_fetch_latest_retail_invoices" {
   type        = string
-  description = "The lambda function for fetching retail invoices from Gmail"
-  default     = "fetch_retail_invoices"
+  description = "The lambda function for the on-demand, single-category retail invoice fetch"
+  default     = "fetch_latest_retail_invoices"
 }
 
 variable "lambda_parse_retail_invoice" {

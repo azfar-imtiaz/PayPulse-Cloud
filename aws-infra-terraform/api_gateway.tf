@@ -404,29 +404,31 @@ resource "aws_lambda_permission" "outlook_oauth_callback_api_permission" {
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }
 
-# --- Endpoint for fetch_retail_invoices ---
+# --- Endpoint for fetch_latest_retail_invoices ---
+# On-demand, single-category retail invoice fetch - the retail equivalent of
+# fetch_latest_invoice (rental). See lambdas/invoices/fetch_latest_retail_invoices/main.py.
 
-# Connect APIGateway to fetch_retail_invoices lambda function
-resource "aws_apigatewayv2_integration" "fetch_retail_invoices_integration" {
+# Connect APIGateway to fetch_latest_retail_invoices lambda function
+resource "aws_apigatewayv2_integration" "fetch_latest_retail_invoices_integration" {
   api_id                 = aws_apigatewayv2_api.paypulse_api.id
   integration_type       = "AWS_PROXY"
-  integration_uri        = module.lambdas.fetch_retail_invoices_invoke_arn
+  integration_uri        = module.lambdas.fetch_latest_retail_invoices_invoke_arn
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
-# Create a route (URL path/v1/invoices/retail/ingest)
-resource "aws_apigatewayv2_route" "fetch_retail_invoices_route" {
+# Create a route (URL path: POST /v1/invoices/retail/fetch_latest)
+resource "aws_apigatewayv2_route" "fetch_latest_retail_invoices_route" {
   api_id    = aws_apigatewayv2_api.paypulse_api.id
-  route_key = "POST /${var.api_version}/invoices/retail/ingest"
-  target    = "integrations/${aws_apigatewayv2_integration.fetch_retail_invoices_integration.id}"
+  route_key = "POST /${var.api_version}/invoices/retail/fetch_latest"
+  target    = "integrations/${aws_apigatewayv2_integration.fetch_latest_retail_invoices_integration.id}"
 }
 
-# Allow APIGateway to invoke the fetch_retail_invoices lambda function
-resource "aws_lambda_permission" "fetch_retail_invoices_api_permission" {
+# Allow APIGateway to invoke the fetch_latest_retail_invoices lambda function
+resource "aws_lambda_permission" "fetch_latest_retail_invoices_api_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = module.lambdas.fetch_retail_invoices_function_name
+  function_name = module.lambdas.fetch_latest_retail_invoices_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.paypulse_api.execution_arn}/*/*"
 }

@@ -35,8 +35,8 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │       ├── send_invoice_notification
 │           ├── main.py
 │           ├── requirements.txt
-│       ├── fetch_retail_invoices          # Vendor-driven retail fetch (paused, see below)
-│           ├── lambda_function.py
+│       ├── fetch_latest_retail_invoices   # On-demand, single-category retail fetch
+│           ├── main.py
 │           ├── requirements.txt
 │       ├── fetch_and_classify_retail_invoices  # Broad Gmail sweep + Jev classification
 │           ├── lambda_function.py
@@ -136,7 +136,7 @@ The GitHub link to the PayPulse app can be found [here](https://github.com/azfar
 │   │   ├── lambda_get_rental_invoice.tf   # Get rental invoice lambda function
 │   │   ├── lambda_get_user_profile.tf     # Get user profile lambda function
 │   │   ├── lambda_gmail_store_tokens.tf   # Gmail store tokens lambda function
-│   │   ├── lambda_fetch_retail_invoices.tf # Fetch retail invoices lambda function
+│   │   ├── lambda_fetch_latest_retail_invoices.tf # On-demand retail fetch lambda function
 │   │   └── lambda_layers.tf               # Lambda layers (utils, JWT, bcrypt, Google API)
 │   └── terraform.tfstate        	    # Terraform state file (not in repo)
 └── README.md                	            # You're here!
@@ -240,8 +240,8 @@ There are several lambda functions, and some of them are linked, in a way. The e
 |    Store Gmail tokens     |   `gmail_store_tokens`      | API Gateway | This function stores OAuth 2.0 tokens received from iOS app for Gmail API access                                        | Zip upload to S3 bucket |
 |    Ingest all rental invoices    |      `fetch_invoices`       | API Gateway | This function fetches all rental invoices (PDF) from the email inbox                                                           | Zip upload to S3 bucket |
 |   Ingest latest rental invoice   |   `fetch_latest_invoice`    | EventBridge (every weekday 8:30 AM) | This function fetches the rental invoice for the current month, if available                                             | Zip upload to S3 bucket |
-|    Ingest retail invoices (vendor-driven)    |   `fetch_retail_invoices`   | API Gateway, EventBridge (weekly, **currently paused**) | This function fetches retail invoices (HTML) from Gmail based on active vendor configurations. Supports custom date ranges. Superseded by the Jev sweep pipeline below - its cron is disabled (`weekly_retail_trigger_enabled = false`), but the Lambda, IAM role, and API route stay live | Zip upload to S3 bucket |
 | Sweep + classify retail invoices | `fetch_and_classify_retail_invoices` | EventBridge (twice daily) + manual backfill mode | Broadly sweeps Gmail (no vendor scoping), classifies each candidate email with a single combined Jev call, and hands confirmed candidates to `parse_retail_invoice` via a tagged S3 upload. See "Automated Retail Invoice Discovery" below | Zip upload to S3 bucket |
+| Fetch latest retail invoices (on-demand) | `fetch_latest_retail_invoices` | API Gateway | Reuses the same sweep/classify logic as `fetch_and_classify_retail_invoices` (shared via `utils.retail_sweep`), scoped to the last 12h and one caller-specified category so a single call finishes within API Gateway's 30s timeout. Returns a count of new candidates found and queued for extraction - actual DB rows appear moments later via `parse_retail_invoice`'s async S3-triggered run | Zip upload to S3 bucket |
 | Parse retail invoice | `parse_retail_invoice` | S3 (retail invoice upload) | Extracts structured fields from a retail invoice HTML using Gemini, and upserts the result into DynamoDB keyed on `(vendor, order_id)` (or `(vendor, day)` when `order_id` isn't resolvable) | Zip upload to S3 bucket |
 | Delete retail invoice | `delete_retail_invoice` | API Gateway | Hard-deletes a retail invoice (DynamoDB + S3) for the authenticated user | Zip upload to S3 bucket |
 | Start retail invoice backfill | `start_retail_invoice_backfill` | API Gateway | **Untested.** Starts a historical backfill (Step Functions execution) for the authenticated caller. Implemented for completeness ahead of a future app-facing feature | Zip upload to S3 bucket |
@@ -285,7 +285,7 @@ The following endpoints are deployed in PayPulseAPI via API Gateway, each of the
 |    Store Gmail tokens    |   gmail_store_tokens     |
 | Fetch all rental invoices|     fetch_invoices       |
 |Fetch latest rental invoice| fetch_latest_invoice    |
-| Fetch retail invoices (vendor-driven, paused)   | fetch_retail_invoices    |
+| Fetch latest retail invoices (on-demand) | fetch_latest_retail_invoices |
 | Delete retail invoice    | delete_retail_invoice    |
 | Start retail invoice backfill (untested) | start_retail_invoice_backfill |
 |      Get invoices        |  get_rental_invoices     |
@@ -358,8 +358,12 @@ doesn't need vendor onboarding at all.
    non-invoice lifecycle emails (shipping/delivery confirmations) that passed the `noul`
    check incorrectly.
 
-The old vendor-driven pipeline (`fetch_retail_invoices`) is paused (its EventBridge
-cron disabled) but left fully deployed for comparison/rollback.
+The old vendor-driven pipeline (`fetch_retail_invoices`) has been removed - it was
+confirmed never invoked in production (0 bytes in its CloudWatch log group) and fully
+superseded by this sweep pipeline. The on-demand, single-category endpoint
+(`fetch_latest_retail_invoices`) reuses this same sweep/classify logic (shared via
+`utils.retail_sweep`) scoped to a 12h window, giving users a manual-trigger equivalent
+of `fetch_latest_invoice` (rental) for retail invoices.
 
 ### Historical backfill
 
@@ -535,7 +539,8 @@ I am currently using CloudWatch for monitoring for the lambda functions. Current
 - `/aws/lambda/signup_user`
 - `/aws/lambda/fetch_invoices`         # Rental invoices
 - `/aws/lambda/fetch_latest_invoice`   # Rental invoices
-- `/aws/lambda/fetch_retail_invoices`  # Retail invoices
+- `/aws/lambda/fetch_latest_retail_invoices`  # Retail invoices (on-demand)
+- `/aws/lambda/fetch_and_classify_retail_invoices`  # Retail invoices (sweep cron)
 - `/aws/lambda/parse_invoice`
 - `/aws/lambda/get_rental_invoice`
 - `/aws/lambda/get_rental_invoices`

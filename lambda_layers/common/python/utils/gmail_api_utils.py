@@ -388,7 +388,10 @@ def get_email_metadata_light(service, message_id: str) -> Dict[str, Any]:
         message_id: Gmail message ID
 
     Returns:
-        Dict with keys: message_id, subject, sender, snippet, has_attachment
+        Dict with keys: message_id, subject, sender, snippet, has_attachment,
+        internal_date_ms (Gmail's internalDate, epoch ms - used by on-demand callers to
+        enforce an hour-granularity cutoff that Gmail's day-granularity after:/before:
+        query operators can't express on their own)
 
     Raises:
         GmailAPIError: If metadata retrieval fails
@@ -409,6 +412,7 @@ def get_email_metadata_light(service, message_id: str) -> Dict[str, Any]:
             'sender': headers.get('From', ''),
             'snippet': message.get('snippet', ''),
             'has_attachment': _payload_has_attachment(payload),
+            'internal_date_ms': int(message['internalDate']) if message.get('internalDate') else None,
         }
     except Exception as e:
         raise GmailAPIError(f"Failed to get email metadata: {str(e)}") from e

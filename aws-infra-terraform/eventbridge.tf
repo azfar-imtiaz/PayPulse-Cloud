@@ -12,20 +12,6 @@ resource "aws_cloudwatch_event_target" "daily_lambda_target" {
   arn       = module.lambdas.fetch_latest_invoice_arn
 }
 
-# Weekly trigger for fetch_retail_invoices lambda function
-resource "aws_cloudwatch_event_rule" "weekly_retail_trigger" {
-  name                = var.weekly_retail_trigger
-  schedule_expression = var.weekly_retail_trigger_schedule
-  is_enabled          = var.weekly_retail_trigger_enabled
-}
-
-# Target for weekly retail invoice trigger
-resource "aws_cloudwatch_event_target" "weekly_retail_target" {
-  rule      = aws_cloudwatch_event_rule.weekly_retail_trigger.name
-  target_id = "WeeklyRetailInvoiceTarget"
-  arn       = module.lambdas.fetch_retail_invoices_arn
-}
-
 # Sweep trigger for fetch_and_classify_retail_invoices lambda function (new, independent
 # of the weekly vendor-driven retail trigger above - both can run in parallel during testing)
 resource "aws_cloudwatch_event_rule" "retail_sweep_trigger" {
