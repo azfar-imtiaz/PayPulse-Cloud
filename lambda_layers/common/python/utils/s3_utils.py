@@ -77,9 +77,7 @@ def get_s3_path_to_invoice(user_id: str, invoice_type: str, filename: str, retai
 
 def get_valid_retail_categories() -> list:
     """Get list of valid retail categories (matches DynamoDB table structure)"""
-    # Deferred import: utils.retail_sweep imports from this module, so importing it at
-    # module level here would be circular.
-    from utils.retail_sweep import SUPPORTED_CATEGORIES
+    from utils.retail_categories import SUPPORTED_CATEGORIES
     return SUPPORTED_CATEGORIES
 
 

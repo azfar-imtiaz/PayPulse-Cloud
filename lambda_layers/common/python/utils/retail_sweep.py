@@ -28,6 +28,7 @@ from utils.exceptions import ClassificationError
 from utils.jev_client import classify_email
 from utils.gemini_fallback import gemini_category_fallback
 from utils.backfill_prefilter import should_prefilter_candidate
+from utils.retail_categories import SUPPORTED_CATEGORIES
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
@@ -38,20 +39,12 @@ logger.setLevel(logging.INFO)
 # Generous enough for real invoice PDFs, cheap guardrail against pathological attachments.
 MAX_PDF_ATTACHMENT_BYTES = 8 * 1024 * 1024
 
-# Categories with an implemented Gemini parser in lambda_layers/gemini_parsers/parser_factory.py.
-# Keep in sync with that file's parser_mapping - any category not listed here parks as
-# `parked_unsupported_category` instead of being uploaded for extraction. Also the
-# canonical category list - utils/s3_utils.get_valid_retail_categories() delegates here.
-SUPPORTED_CATEGORIES = [
-    'food-delivery',
-    'miscellaneous',
-    'technology',
-    'clothing',
-    'travel',
-    'subscriptions',
-    'grocery',
-    'utility',
-]
+# SUPPORTED_CATEGORIES imported from utils.retail_categories above - that module has zero
+# imports so lambdas without jev_layer/google_api_layer attached (get_invoices,
+# recategorize_retail_invoice, etc.) can resolve the category list without pulling in this
+# whole module's heavy dependencies. Categories here must have an implemented Gemini parser
+# in lambda_layers/gemini_parsers/parser_factory.py - any category not listed there parks as
+# `parked_unsupported_category` instead of being uploaded for extraction.
 
 # Short disambiguation hints fed into Jev's Choice criteria (and the Gemini fallback
 # prompt) so classification has real guidance instead of bare labels. Added after
