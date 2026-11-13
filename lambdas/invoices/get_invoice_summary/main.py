@@ -1,7 +1,6 @@
 import os
 import json
 import boto3
-import logging
 import calendar
 
 from datetime import datetime
