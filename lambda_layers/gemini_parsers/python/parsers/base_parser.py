@@ -17,7 +17,7 @@ class RetailInvoiceBaseParser:
         self.schema = {
             "vendor_name": "string",
             "total_amount": "number",
-            "currency": "string",
+            "currency": "string (ISO 4217 three-letter code, e.g. SEK, EUR, USD, PKR)",
             "invoice_date": "string (ISO 8601 format: YYYY-MM-DD)",
             "order_id": "string"
         }
@@ -122,7 +122,13 @@ class RetailInvoiceBaseParser:
         return [
             '- For dates, use ISO 8601 format (invoice_date: YYYY-MM-DD)',
             '- For amounts, extract only the numeric value (no currency symbols)',
-            '- If a field is not found in the invoice, use null for strings and 0 for numbers',
+            '- currency must always be an ISO 4217 three-letter code (e.g. SEK, EUR, USD, GBP, NOK, DKK, PKR), '
+            'never a symbol or abbreviation like "kr", "$", "€", "£" or "Rs." - convert those to the matching code',
+            '- If the invoice does not state the currency explicitly, infer it from context: the vendor\'s country, '
+            'the email\'s language, addresses, phone numbers, tax/VAT wording, or the price format',
+            '- Only if you are genuinely unsure and cannot infer the currency from context, use "SEK" as the default '
+            '- never return null for currency',
+            '- If any other field is not found in the invoice, use null for strings and 0 for numbers',
             '- Ensure the JSON is valid and properly formatted',
             '- Do NOT include any explanations or text outside the JSON object',
             '- Return ONLY the JSON object, nothing else',

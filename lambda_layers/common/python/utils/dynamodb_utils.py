@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 
 from utils.utility_functions import postprocess_rental_invoices, postprocess_retail_invoices
+from utils.fx_utils import build_currency_fields
 from utils.exceptions import UserNotFoundError, UserAlreadyExistsError, DatabaseError, NoInvoiceFoundError
 
 
@@ -171,12 +172,12 @@ def invoice_exists_in_dynamodb(dynamodb_table, user_id: str, current_month: int,
     )
     '''
     logging.info(f"Searching for invoices in month {current_month} and year {current_year} for user '{user_id}'")
-    response = dynamodb_table.scan(
-        FilterExpression=(Attr('UserID').eq(user_id) &
-                          Attr('due_date_year').eq(str(current_year)) &
+    items_found = _query_all_pages(
+        dynamodb_table,
+        KeyConditionExpression=Key('UserID').eq(user_id),
+        FilterExpression=(Attr('due_date_year').eq(str(current_year)) &
                           Attr('due_date_month').eq(str(current_month)))
     )
-    items_found = response.get('Items', [])
     logging.info(f"Found {len(items_found)} items in the table!")
     for item in items_found:
         print(item)
@@ -424,10 +425,7 @@ def delete_user_retail_invoices(retail_invoices_table, user_id: str) -> list:
     """
     try:
         # Get all retail invoices for this user_id
-        response = retail_invoices_table.query(
-            KeyConditionExpression=Key('UserID').eq(user_id)
-        )
-        invoices = response['Items']
+        invoices = _query_all_pages(retail_invoices_table, KeyConditionExpression=Key('UserID').eq(user_id))
         invoice_ids = []
 
         # Delete all retail invoices one-by-one and collect invoice IDs
@@ -502,12 +500,12 @@ def get_user_retail_invoices(dynamodb_table, user_id: str, exclude_sources=None)
         Tuple of (invoices_dict, count)
     """
     try:
-        response = dynamodb_table.query(
+        invoices = _query_all_pages(
+            dynamodb_table,
             KeyConditionExpression=Key('UserID').eq(user_id),
             FilterExpression=_build_retail_list_filter(exclude_sources),
             ProjectionExpression="InvoiceID, invoice_date, total_amount, currency, vendor_name, sub_type"
         )
-        invoices = response.get('Items', [])
         invoices_grouped = postprocess_retail_invoices(invoices)
         logging.info(f"Retrieved {len(invoices)} retail invoices for user '{user_id}'")
         return invoices_grouped, len(invoices)
@@ -536,13 +534,13 @@ def get_user_retail_invoices_by_subtype(dynamodb_table, user_id: str, sub_type: 
         # Partition key format: UserID_SubType
         user_id_subtype = f"{user_id}_{sub_type}"
 
-        response = dynamodb_table.query(
+        invoices = _query_all_pages(
+            dynamodb_table,
             IndexName='sub_type-invoice_date-index',
             KeyConditionExpression=Key('UserID_SubType').eq(user_id_subtype),
             FilterExpression=_build_retail_list_filter(exclude_sources),
             ProjectionExpression="InvoiceID, invoice_date, total_amount, currency, vendor_name, sub_type"
         )
-        invoices = response.get('Items', [])
         invoices_grouped = postprocess_retail_invoices(invoices, group_by=group_by)
         logging.info(f"Retrieved {len(invoices)} retail invoices for user '{user_id}' with sub-type '{sub_type}' grouped by {group_by}")
         return invoices_grouped, len(invoices)
@@ -569,12 +567,13 @@ def get_linked_duplicate_invoice_ids(dynamodb_table, user_id: str, invoice_id: s
         List of invoice IDs that are marked as duplicates of invoice_id
     """
     try:
-        response = dynamodb_table.query(
+        items = _query_all_pages(
+            dynamodb_table,
             KeyConditionExpression=Key('UserID').eq(user_id),
             FilterExpression=Attr('duplicate_of_invoice_id').eq(invoice_id),
             ProjectionExpression="InvoiceID"
         )
-        return [item['InvoiceID'] for item in response.get('Items', [])]
+        return [item['InvoiceID'] for item in items]
     except Exception as e:
         raise DatabaseError(f"Error getting linked duplicates for invoice '{invoice_id}'") from e
 
@@ -632,14 +631,15 @@ def get_retail_invoice_counts(dynamodb_table, user_id: str, exclude_sources=None
             counts[category] = 0
 
         # Query all retail invoices for the user and count by sub_type
-        response = dynamodb_table.query(
+        invoices = _query_all_pages(
+            dynamodb_table,
             KeyConditionExpression=Key('UserID').eq(user_id),
             FilterExpression=_build_retail_list_filter(exclude_sources),
             ProjectionExpression="sub_type"
         )
 
         # Count invoices by sub_type
-        for invoice in response.get('Items', []):
+        for invoice in invoices:
             sub_type = invoice.get('sub_type')
             if sub_type in counts:
                 counts[sub_type] += 1
@@ -649,6 +649,28 @@ def get_retail_invoice_counts(dynamodb_table, user_id: str, exclude_sources=None
 
     except Exception as e:
         raise DatabaseError(f"Error getting retail invoice counts for '{user_id}'") from e
+
+
+def _query_all_pages(table, **query_kwargs) -> List[Dict]:
+    """Run a Query and follow LastEvaluatedKey until every page is read, since each response is capped at 1 MB of data read (before FilterExpression)."""
+    items = []
+    while True:
+        response = table.query(**query_kwargs)
+        items.extend(response.get('Items', []))
+        if 'LastEvaluatedKey' not in response:
+            return items
+        query_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
+
+
+def _count_all_pages(table, **query_kwargs) -> int:
+    """Run a Select='COUNT' Query across every page, since COUNT queries are capped at 1 MB of data read per page too."""
+    total = 0
+    while True:
+        response = table.query(Select='COUNT', **query_kwargs)
+        total += response.get('Count', 0)
+        if 'LastEvaluatedKey' not in response:
+            return total
+        query_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
 
 
 def get_rental_invoice_for_month(table, user_id: str, year: int, month: int) -> Optional[Dict]:
@@ -670,10 +692,8 @@ def get_rental_invoice_for_month(table, user_id: str, year: int, month: int) -> 
         The matching invoice item, or None if not found
     """
     try:
-        response = table.query(
-            KeyConditionExpression=Key('UserID').eq(user_id)
-        )
-        for invoice in response.get('Items', []):
+        invoices = _query_all_pages(table, KeyConditionExpression=Key('UserID').eq(user_id))
+        for invoice in invoices:
             if invoice.get('due_date_year') == str(year) and invoice.get('due_date_month') == str(month):
                 return invoice
         return None
@@ -699,12 +719,12 @@ def get_retail_invoices_for_month(table, user_id: str, start_date: str, end_date
         List of matching invoice items
     """
     try:
-        response = table.query(
+        return _query_all_pages(
+            table,
             IndexName='invoice_date-index',
             KeyConditionExpression=Key('UserID').eq(user_id) & Key('invoice_date').between(start_date, end_date),
             FilterExpression=_build_retail_list_filter(exclude_sources)
         )
-        return response.get('Items', [])
     except Exception as e:
         raise DatabaseError(f"Error getting retail invoices for '{user_id}' between {start_date} and {end_date}") from e
 
@@ -901,7 +921,6 @@ def upsert_retail_invoice_to_dynamodb(retail_invoices_table, detail_tables: Dict
             'vendor_name': vendor_name,
             'sub_type': sub_type,
             'total_amount': invoice_data.get('total_amount'),
-            'currency': invoice_data.get('currency'),
             'invoice_date': invoice_date,
             'created_at': created_at,
             's3_path': s3_path,
@@ -912,6 +931,11 @@ def upsert_retail_invoice_to_dynamodb(retail_invoices_table, detail_tables: Dict
         }
         if vendor_order_key:
             base_invoice_data['vendor_order_key'] = vendor_order_key
+
+        # Normalized ISO currency plus the SEK-converted amount used by spend summaries
+        base_invoice_data.update(build_currency_fields(
+            invoice_data.get('total_amount'), invoice_data.get('currency'), invoice_date
+        ))
 
         # Insert/overwrite RetailInvoices base table row
         logging.info(f"Writing base invoice data into RetailInvoices")
@@ -965,14 +989,12 @@ def get_retail_invoice_count_by_subtype(dynamodb_table, user_id: str, sub_type: 
         # Use GSI-2: sub_type-invoice_date-index for efficient filtering
         user_id_subtype = f"{user_id}_{sub_type}"
 
-        response = dynamodb_table.query(
+        count = _count_all_pages(
+            dynamodb_table,
             IndexName='sub_type-invoice_date-index',
             KeyConditionExpression=Key('UserID_SubType').eq(user_id_subtype),
-            FilterExpression=_build_retail_list_filter(exclude_sources),
-            Select='COUNT'  # Only return the count, not the items
+            FilterExpression=_build_retail_list_filter(exclude_sources)
         )
-
-        count = response.get('Count', 0)
         result = {sub_type: count}
 
         logging.info(f"Retrieved retail invoice count for user '{user_id}' sub-type '{sub_type}': {count}")

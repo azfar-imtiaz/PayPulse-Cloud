@@ -49,6 +49,7 @@ def build_rental_invoice_card(invoice: Dict) -> Dict:
         'vendor_name': None,
         'total_amount': invoice.get(RENTAL_INVOICE_AMOUNT_FIELD),
         'currency': RENTAL_INVOICE_CURRENCY,
+        'total_amount_sek': invoice.get(RENTAL_INVOICE_AMOUNT_FIELD),  # rent is always in SEK
         'invoice_date': f"{year}-{month}-01" if year and month else None
     }
 
@@ -65,6 +66,7 @@ def build_retail_invoice_card(invoice: Dict) -> Dict:
         'vendor_name': invoice.get('vendor_name'),
         'total_amount': invoice.get('total_amount'),
         'currency': invoice.get('currency'),
+        'total_amount_sek': invoice.get('total_amount_sek'),  # None when the currency has no ECB rate (e.g. PKR)
         'invoice_date': invoice.get('invoice_date')
     }
 

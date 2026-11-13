@@ -12,6 +12,7 @@ from parser_factory import get_parser_for_subtype
 from utils.decorators import require_auth
 from utils.dynamodb_utils import get_retail_invoice_for_user
 from utils.s3_utils import get_valid_retail_categories
+from utils.fx_utils import build_currency_fields
 from utils.responses import success_response, log_and_generate_error_response, ErrorCode
 from utils.exceptions import DatabaseError, NoInvoiceFoundError, S3Error
 
@@ -142,11 +143,18 @@ def lambda_handler(event, context, user_id):
 
         # Step 5: Atomically update base table + move the detail row
         new_total_amount = parsed_data.get('total_amount', invoice.get('total_amount'))
+        # The amount can change on re-parse, so the SEK conversion has to be recomputed with it
+        currency_fields = build_currency_fields(
+            new_total_amount,
+            invoice.get('currency') or parsed_data.get('currency'),
+            invoice.get('invoice_date')
+        )
         transact_recategorize(
             user_id=user_id,
             invoice_id=invoice_id,
             new_sub_type=new_sub_type,
             new_total_amount=_convert_floats_to_decimal(new_total_amount),
+            currency_fields=currency_fields,
             old_detail_table_name=old_detail_table_name,
             new_detail_table_name=new_detail_table_name,
             new_detail_item=_convert_floats_to_decimal(detail_data)
@@ -223,7 +231,8 @@ def download_html_from_s3(bucket: str, s3_key: str) -> str:
 
 
 def transact_recategorize(user_id: str, invoice_id: str, new_sub_type: str, new_total_amount,
-                           old_detail_table_name: str, new_detail_table_name: str, new_detail_item: dict) -> None:
+                           old_detail_table_name: str, new_detail_table_name: str, new_detail_item: dict,
+                           currency_fields: dict = None) -> None:
     """
     Atomically: update the RetailInvoices base item's sub_type/UserID_SubType (and
     total_amount, since re-parsing into a new category can yield a different amount),
@@ -232,22 +241,38 @@ def transact_recategorize(user_id: str, invoice_id: str, new_sub_type: str, new_
     Using a single TransactWriteItems call avoids a partial failure leaving sub_type
     pointing at a category with no corresponding detail row.
     """
+    set_clauses = ['sub_type = :new_sub_type', 'UserID_SubType = :new_composite', 'total_amount = :new_total_amount']
+    attribute_names = {}
+    attribute_values = {
+        ':new_sub_type': serializer.serialize(new_sub_type),
+        ':new_composite': serializer.serialize(f"{user_id}_{new_sub_type}"),
+        ':new_total_amount': serializer.serialize(new_total_amount)
+    }
+    for field, value in (currency_fields or {}).items():
+        set_clauses.append(f"#{field} = :{field}")
+        attribute_names[f"#{field}"] = field
+        attribute_values[f":{field}"] = serializer.serialize(value)
+    update_expression = 'SET ' + ', '.join(set_clauses)
+    # Drop a stale SEK conversion if the new amount couldn't be converted
+    if currency_fields is not None and 'total_amount_sek' not in currency_fields:
+        stale_fields = ['total_amount_sek', 'fx_rate', 'fx_rate_date', 'fx_source']
+        attribute_names.update({f"#{field}": field for field in stale_fields})
+        update_expression += ' REMOVE ' + ', '.join(f"#{field}" for field in stale_fields)
+
+    update_item = {
+        'TableName': RETAIL_INVOICES_TABLE,
+        'Key': {
+            'UserID': {'S': user_id},
+            'InvoiceID': {'S': invoice_id}
+        },
+        'UpdateExpression': update_expression,
+        'ExpressionAttributeValues': attribute_values
+    }
+    if attribute_names:
+        update_item['ExpressionAttributeNames'] = attribute_names
+
     transact_items = [
-        {
-            'Update': {
-                'TableName': RETAIL_INVOICES_TABLE,
-                'Key': {
-                    'UserID': {'S': user_id},
-                    'InvoiceID': {'S': invoice_id}
-                },
-                'UpdateExpression': 'SET sub_type = :new_sub_type, UserID_SubType = :new_composite, total_amount = :new_total_amount',
-                'ExpressionAttributeValues': {
-                    ':new_sub_type': serializer.serialize(new_sub_type),
-                    ':new_composite': serializer.serialize(f"{user_id}_{new_sub_type}"),
-                    ':new_total_amount': serializer.serialize(new_total_amount)
-                }
-            }
-        }
+        {'Update': update_item}
     ]
 
     if old_detail_table_name:
