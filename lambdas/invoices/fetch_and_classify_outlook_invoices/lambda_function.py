@@ -153,30 +153,34 @@ def determine_sweep_date_range(user: dict, default_days: int = DEFAULT_SWEEP_DAY
 def list_sweep_candidates(outlook_client, start_date: str, end_date: str, max_pages: int,
                            excluded_senders: list = None) -> tuple:
     """
-    Paginated Graph messages listing over the sweep window.
+    Paginated, oldest-first Graph messages listing over the sweep window.
 
     Returns:
-        Tuple of (message_ids: list, exhausted: bool) - exhausted is False if the page cap
-        was hit before Graph ran out of pages, signaling the caller should NOT advance
-        last_outlook_sweep_fetch (the next run retries this same window).
+        Tuple of (message_ids, exhausted, last_received_at). When the page cap is hit
+        (exhausted=False), last_received_at is the receivedDateTime of the newest message
+        reached, so the caller can advance the watermark there and the next run resumes
+        from that point instead of restarting the whole window.
     """
     query_filter = build_sweep_outlook_query(start_date, end_date, excluded_senders=excluded_senders)
     message_ids = []
+    last_received_at = None
     next_link = None
     pages_fetched = 0
 
     while True:
         messages, next_link = list_messages(outlook_client, query_filter, page_url=next_link)
         message_ids.extend(m['id'] for m in messages)
+        if messages:
+            last_received_at = messages[-1].get('receivedDateTime') or last_received_at
         pages_fetched += 1
 
         if not next_link:
-            return message_ids, True
+            return message_ids, True, last_received_at
 
         if pages_fetched >= max_pages:
             logger.warning(f"Hit MAX_SWEEP_PAGES={max_pages} cap with more pages remaining - "
-                            f"will not advance last_outlook_sweep_fetch this run")
-            return message_ids, False
+                            f"partial window, reached messages up to {last_received_at}")
+            return message_ids, False, last_received_at
 
 
 def process_candidate_email(outlook_client, ledger_table, s3_bucket, user_id: str, message_id: str,
@@ -318,8 +322,9 @@ def process_user_sweep(user: dict, backfill_start_date: str = None, backfill_end
     }
 
     excluded_senders = [s.strip() for s in os.environ.get('EXCLUDED_SENDER_EMAILS', '').split(',') if s.strip()]
-    message_ids, exhausted = list_sweep_candidates(outlook_client, start_date, end_date, max_pages,
-                                                     excluded_senders=excluded_senders)
+    message_ids, exhausted, last_received_at = list_sweep_candidates(
+        outlook_client, start_date, end_date, max_pages, excluded_senders=excluded_senders
+    )
     logger.info(f"Sweep found {len(message_ids)} candidate messages for user {user_id} "
                 f"({start_date} to {end_date}, exhausted={exhausted})")
 
@@ -340,8 +345,13 @@ def process_user_sweep(user: dict, backfill_start_date: str = None, backfill_end
         outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
         time.sleep(0.1)  # Rate limiting, matches Gmail sweep's pattern
 
-    if exhausted and not backfill_start_date:
-        update_last_outlook_sweep_fetch(users_table, user_id)
+    # Watermark = end of what was actually covered: the query's end_date (not "now", which
+    # would skip mail received while this run was executing) or, if capped, the last
+    # message reached. The boundary message is re-listed next run and skipped via ledger.
+    if not backfill_start_date:
+        new_watermark = end_date if exhausted else last_received_at
+        if new_watermark:
+            update_last_outlook_sweep_fetch(users_table, user_id, timestamp=new_watermark)
 
     return {
         'user_id': user_id,

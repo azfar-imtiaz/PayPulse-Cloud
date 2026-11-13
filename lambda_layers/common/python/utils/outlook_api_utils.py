@@ -1,5 +1,6 @@
 import base64
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -140,14 +141,46 @@ def build_sweep_outlook_query(start_date: str, end_date: str, excluded_senders: 
     return query
 
 
+LIST_MESSAGES_TIMEOUT_SECONDS = 30
+LIST_MESSAGES_MAX_ATTEMPTS = 3
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+def _get_with_retry(client: OutlookClient, url: str, params: dict = None) -> requests.Response:
+    """GET against Graph, retrying timeouts, connection errors and 429/5xx with backoff (honoring Retry-After)."""
+    for attempt in range(1, LIST_MESSAGES_MAX_ATTEMPTS + 1):
+        is_last = attempt == LIST_MESSAGES_MAX_ATTEMPTS
+        try:
+            response = client.session.get(url, params=params, timeout=LIST_MESSAGES_TIMEOUT_SECONDS)
+        except (requests.Timeout, requests.ConnectionError) as e:
+            if is_last:
+                raise
+            delay = 2 ** attempt
+            logging.warning(f"Graph request attempt {attempt} failed ({e}), retrying in {delay}s")
+            time.sleep(delay)
+            continue
+
+        if response.status_code in RETRYABLE_STATUS_CODES and not is_last:
+            retry_after = response.headers.get('Retry-After', '')
+            delay = min(int(retry_after), 30) if retry_after.isdigit() else 2 ** attempt
+            logging.warning(f"Graph request attempt {attempt} returned HTTP {response.status_code}, retrying in {delay}s")
+            time.sleep(delay)
+            continue
+
+        return response
+
+
 def list_messages(client: OutlookClient, query_filter: str, page_url: str = None) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """
-    Lists messages in the user's mailbox matching query_filter, paginating via @odata.nextLink.
+    Lists messages matching query_filter oldest-first (receivedDateTime asc), paginating via
+    @odata.nextLink; each message dict carries 'id' and 'receivedDateTime' so a page-capped
+    caller can advance its watermark to the last message it reached.
 
     Args:
         client: OutlookClient
         query_filter: Graph OData $filter string (ignored on subsequent pages - page_url
-            already encodes it)
+            already encodes it). Must start with a receivedDateTime clause, since Graph
+            requires $orderby properties to appear first in $filter.
         page_url: Full URL for the next page (from a prior call's returned next_link), or
             None to start from the first page
 
@@ -155,16 +188,16 @@ def list_messages(client: OutlookClient, query_filter: str, page_url: str = None
         (messages, next_link_or_None)
 
     Raises:
-        OutlookAPIError: If the request fails
+        OutlookAPIError: If the request fails after retries
     """
     try:
         if page_url:
-            response = client.session.get(page_url, timeout=15)
+            response = _get_with_retry(client, page_url)
         else:
-            response = client.session.get(
-                f"{GRAPH_BASE_URL}/me/messages",
-                params={'$filter': query_filter, '$select': 'id', '$top': 50},
-                timeout=15
+            response = _get_with_retry(
+                client, f"{GRAPH_BASE_URL}/me/messages",
+                params={'$filter': query_filter, '$orderby': 'receivedDateTime asc',
+                        '$select': 'id,receivedDateTime', '$top': 50}
             )
 
         if response.status_code != 200:

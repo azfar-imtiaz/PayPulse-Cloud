@@ -298,19 +298,14 @@ def update_last_retail_sweep_fetch(users_table, user_id: str) -> None:
         raise DatabaseError(f"Error updating last_retail_sweep_fetch for user {user_id}") from e
 
 
-def update_last_outlook_sweep_fetch(users_table, user_id: str) -> None:
+def update_last_outlook_sweep_fetch(users_table, user_id: str, timestamp: str = None) -> None:
     """
-    Update user's last_outlook_sweep_fetch timestamp to current time.
-
-    Separate field from last_retail_sweep_fetch (Gmail) so the two providers' sweeps
-    don't collide while both run against the same user.
-
-    Args:
-        users_table: DynamoDB table resource for Users
-        user_id: User ID
+    Update user's last_outlook_sweep_fetch to timestamp (ISO 8601), or the current time if
+    omitted. Separate field from last_retail_sweep_fetch (Gmail) so the two providers'
+    sweeps don't collide while both run against the same user.
     """
     try:
-        current_timestamp = datetime.now(timezone.utc).isoformat()
+        current_timestamp = timestamp or datetime.now(timezone.utc).isoformat()
 
         users_table.update_item(
             Key={'UserID': user_id},
