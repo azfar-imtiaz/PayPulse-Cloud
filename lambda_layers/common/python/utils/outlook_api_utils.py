@@ -146,12 +146,14 @@ LIST_MESSAGES_MAX_ATTEMPTS = 3
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
-def _get_with_retry(client: OutlookClient, url: str, params: dict = None) -> requests.Response:
+def _get_with_retry(client: OutlookClient, url: str, params: dict = None,
+                    timeout: float = LIST_MESSAGES_TIMEOUT_SECONDS,
+                    max_attempts: int = LIST_MESSAGES_MAX_ATTEMPTS) -> requests.Response:
     """GET against Graph, retrying timeouts, connection errors and 429/5xx with backoff (honoring Retry-After)."""
-    for attempt in range(1, LIST_MESSAGES_MAX_ATTEMPTS + 1):
-        is_last = attempt == LIST_MESSAGES_MAX_ATTEMPTS
+    for attempt in range(1, max_attempts + 1):
+        is_last = attempt == max_attempts
         try:
-            response = client.session.get(url, params=params, timeout=LIST_MESSAGES_TIMEOUT_SECONDS)
+            response = client.session.get(url, params=params, timeout=timeout)
         except (requests.Timeout, requests.ConnectionError) as e:
             if is_last:
                 raise
@@ -170,7 +172,9 @@ def _get_with_retry(client: OutlookClient, url: str, params: dict = None) -> req
         return response
 
 
-def list_messages(client: OutlookClient, query_filter: str, page_url: str = None) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+def list_messages(client: OutlookClient, query_filter: str, page_url: str = None,
+                  timeout: float = LIST_MESSAGES_TIMEOUT_SECONDS,
+                  max_attempts: int = LIST_MESSAGES_MAX_ATTEMPTS) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """
     Lists messages matching query_filter oldest-first (receivedDateTime asc), paginating via
     @odata.nextLink; each message dict carries 'id' and 'receivedDateTime' so a page-capped
@@ -183,6 +187,8 @@ def list_messages(client: OutlookClient, query_filter: str, page_url: str = None
             requires $orderby properties to appear first in $filter.
         page_url: Full URL for the next page (from a prior call's returned next_link), or
             None to start from the first page
+        timeout, max_attempts: Per-attempt read timeout and retry budget - latency-bound
+            callers (the on-demand API endpoint) pass tighter values than the cron default.
 
     Returns:
         (messages, next_link_or_None)
@@ -192,12 +198,13 @@ def list_messages(client: OutlookClient, query_filter: str, page_url: str = None
     """
     try:
         if page_url:
-            response = _get_with_retry(client, page_url)
+            response = _get_with_retry(client, page_url, timeout=timeout, max_attempts=max_attempts)
         else:
             response = _get_with_retry(
                 client, f"{GRAPH_BASE_URL}/me/messages",
                 params={'$filter': query_filter, '$orderby': 'receivedDateTime asc',
-                        '$select': 'id,receivedDateTime', '$top': 50}
+                        '$select': 'id,receivedDateTime', '$top': 50},
+                timeout=timeout, max_attempts=max_attempts
             )
 
         if response.status_code != 200:

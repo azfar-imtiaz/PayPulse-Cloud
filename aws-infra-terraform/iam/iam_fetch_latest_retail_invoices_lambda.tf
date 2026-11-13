@@ -102,6 +102,18 @@ resource "aws_iam_policy" "fetch_latest_retail_invoices_lambda_policy" {
         ],
         Resource = "arn:aws:secretsmanager:${var.aws_region}:*:secret:gmail/user/*"
       },
+      # Secrets Manager - Get/Update/Delete Outlook OAuth tokens (on-demand Outlook sweep;
+      # Microsoft rotates the refresh token on every refresh, so it must be persisted)
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecret",
+          "secretsmanager:DeleteSecret"
+        ],
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:*:secret:outlook/user/*"
+      },
       # Secrets Manager - Jev and Gemini API keys
       {
         Effect = "Allow",

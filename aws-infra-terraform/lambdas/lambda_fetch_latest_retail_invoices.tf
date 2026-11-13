@@ -1,6 +1,7 @@
 # On-demand, single-category retail invoice fetch - the retail equivalent of
 # fetch_latest_invoice (rental). Reuses the sweep/classify/upload logic in utils.retail_sweep
 # (shared common layer) but scoped to a tight 12h window and one caller-specified category,
+# also covering the caller's Outlook inbox when linked (best-effort, deadline-bounded),
 # so a single invocation reliably finishes well inside API Gateway's fixed 30s integration
 # timeout. API-Gateway-only - no EventBridge trigger.
 
@@ -36,6 +37,8 @@ resource "aws_lambda_function" "fetch_latest_retail_invoices" {
       USERS_TABLE                              = var.users_table_name
       REGION                                   = var.aws_region
       GOOGLE_OAUTH_CLIENT_ID                   = var.google_oauth_client_id
+      OUTLOOK_OAUTH_CLIENT_ID                  = var.outlook_oauth_client_id
+      OUTLOOK_OAUTH_CLIENT_SECRET              = var.outlook_oauth_client_secret
       GEMINI_API_KEY                           = var.gemini_api_key_secret_string
       JEV_API_KEY                              = var.jev_api_key_secret_string
       RETAIL_EMAIL_CLASSIFICATION_LEDGER_TABLE = var.retail_email_classification_ledger_table_name

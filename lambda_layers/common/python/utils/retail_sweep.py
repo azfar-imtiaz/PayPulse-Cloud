@@ -28,7 +28,7 @@ from utils.exceptions import ClassificationError
 from utils.jev_client import classify_email
 from utils.gemini_fallback import gemini_category_fallback
 from utils.backfill_prefilter import should_prefilter_candidate
-from utils.retail_categories import SUPPORTED_CATEGORIES
+from utils.retail_categories import SUPPORTED_CATEGORIES, CATEGORY_DESCRIPTIONS
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
@@ -45,43 +45,6 @@ MAX_PDF_ATTACHMENT_BYTES = 8 * 1024 * 1024
 # whole module's heavy dependencies. Categories here must have an implemented Gemini parser
 # in lambda_layers/gemini_parsers/parser_factory.py - any category not listed there parks as
 # `parked_unsupported_category` instead of being uploaded for extraction.
-
-# Short disambiguation hints fed into Jev's Choice criteria (and the Gemini fallback
-# prompt) so classification has real guidance instead of bare labels. Added after
-# reviewing the first production run: parking providers were landing in 'miscellaneous'
-# instead of 'travel', and cloud/SaaS billing (AWS, GCP) was landing in 'technology'
-# instead of 'subscriptions'. Tune these as more misclassification patterns surface.
-CATEGORY_DESCRIPTIONS = {
-    'food-delivery': (
-        "Restaurant or food delivery orders - meals ordered for delivery or pickup "
-        "(e.g. Foodora, Uber Eats, Dominos)."
-    ),
-    'clothing': "Clothing, shoes, or apparel purchases.",
-    'technology': (
-        "One-time purchases of technology hardware, gadgets, or software/app licenses. "
-        "Does NOT include recurring cloud or SaaS platform bills - those belong in "
-        "'subscriptions' even though the vendor sounds technical (e.g. an AWS or Google "
-        "Cloud invoice is a subscription, not technology)."
-    ),
-    'subscriptions': (
-        "Recurring, regularly-billed services: streaming, cloud/SaaS platforms (AWS, "
-        "Google Cloud, Azure, Anthropic, OpenAI), software subscriptions, and recurring "
-        "membership or community dues (gym, club, religious organization). If the email "
-        "describes a monthly or periodic charge, prefer this category even if the vendor "
-        "sounds technical or otherwise unrelated."
-    ),
-    'grocery': "Grocery store or supermarket purchases.",
-    'utility': "Home utility bills: electricity, water, heating, or home internet/broadband service.",
-    'miscellaneous': (
-        "General purchases that don't clearly fit any other category. Use this only "
-        "when no other category applies."
-    ),
-    'travel': (
-        "Transportation and travel-related purchases: flights, trains, ride-hailing, "
-        "parking, tolls, hotels. Parking providers (e.g. Parkering, EasyPark, APCOA, "
-        "P-Hus, Parkster) always belong here, not 'miscellaneous'."
-    ),
-}
 
 DEFAULT_SWEEP_DAYS = 30
 
@@ -198,7 +161,11 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
     if existing:
         return 'skipped_already_classified'
 
-    write_ledger_entry(ledger_table, user_id, message_id, status='pending')
+    # A category-filtered (on-demand) run only asks "is this a <category> invoice?", so its
+    # rejections say nothing about the other categories. Recording them would make the full
+    # cron sweep skip the email forever, so such runs only record category-independent
+    # outcomes (prefilter, upload, no HTML).
+    record_verdicts = category_filter is None
 
     metadata = get_email_metadata_light(gmail_service, message_id)
     subject, sender, snippet = metadata['subject'], metadata['sender'], metadata['snippet']
@@ -208,6 +175,9 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
         internal_date_ms = metadata.get('internal_date_ms')
         if internal_date_ms is not None and internal_date_ms < min_internal_date_ms:
             return 'outside_window'
+
+    if record_verdicts:
+        write_ledger_entry(ledger_table, user_id, message_id, status='pending')
 
     if is_backfill and should_prefilter_candidate(sender, prefilter_excluded_domains or set()):
         write_ledger_entry(ledger_table, user_id, message_id, status='rejected_prefilter')
@@ -221,8 +191,9 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
         result = classify_email(jev_api_key, subject, sender, snippet, category_descriptions, has_attachment)
     except ClassificationError as e:
         logger.error(f"Classification failed for message {message_id}: {e}")
-        write_ledger_entry(ledger_table, user_id, message_id, status='extraction_failed',
-                            error_detail=str(e))
+        if record_verdicts:
+            write_ledger_entry(ledger_table, user_id, message_id, status='extraction_failed',
+                                error_detail=str(e))
         return 'classification_failed'
 
     noul_result = result['noul_result']
@@ -232,10 +203,11 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
     used_gemini_fallback = False
 
     if noul_result < noul_threshold:
-        write_ledger_entry(ledger_table, user_id, message_id, status='rejected_tier1',
-                            noul_result=noul_result, choice_category=choice_category,
-                            choice_confidence=choice_confidence, used_gemini_fallback=False,
-                            jev_token_usage=token_usage)
+        if record_verdicts:
+            write_ledger_entry(ledger_table, user_id, message_id, status='rejected_tier1',
+                                noul_result=noul_result, choice_category=choice_category,
+                                choice_confidence=choice_confidence, used_gemini_fallback=False,
+                                jev_token_usage=token_usage)
         return 'rejected_tier1'
 
     if choice_category is None or choice_confidence < choice_confidence_threshold:
@@ -243,16 +215,18 @@ def process_candidate_email(gmail_service, ledger_table, s3_bucket, user_id: str
         choice_category = gemini_category_fallback(gemini_api_key, subject, sender, snippet, category_descriptions, has_attachment)
 
         if choice_category is None:
-            write_ledger_entry(ledger_table, user_id, message_id, status='parked_unclassifiable',
-                                noul_result=noul_result, choice_confidence=choice_confidence,
-                                used_gemini_fallback=True, jev_token_usage=token_usage)
+            if record_verdicts:
+                write_ledger_entry(ledger_table, user_id, message_id, status='parked_unclassifiable',
+                                    noul_result=noul_result, choice_confidence=choice_confidence,
+                                    used_gemini_fallback=True, jev_token_usage=token_usage)
             return 'parked_unclassifiable'
 
     if choice_category not in SUPPORTED_CATEGORIES:
-        write_ledger_entry(ledger_table, user_id, message_id, status='parked_unsupported_category',
-                            noul_result=noul_result, choice_category=choice_category,
-                            choice_confidence=choice_confidence, used_gemini_fallback=used_gemini_fallback,
-                            jev_token_usage=token_usage)
+        if record_verdicts:
+            write_ledger_entry(ledger_table, user_id, message_id, status='parked_unsupported_category',
+                                noul_result=noul_result, choice_category=choice_category,
+                                choice_confidence=choice_confidence, used_gemini_fallback=used_gemini_fallback,
+                                jev_token_usage=token_usage)
         return 'parked_unsupported_category'
 
     # Confirmed candidate - fetch full content and hand off to the existing extraction Lambda
